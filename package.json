@@ -1,0 +1,30 @@
+{
+  "name": "trustpilot-outreach-automation",
+  "version": "1.0.0",
+  "description": "Automate lead generation by analyzing Trustpilot reviews and generating personalized outreach emails",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "web": "node src/server.js",
+    "test": "node src/index.js --test",
+    "format": "node src/format-sheet.js",
+    "regenerate": "node src/regenerate-emails.js",
+    "draft-emails": "node src/draftEmails.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.22.1",
+    "googleapis": "^144.0.0",
+    "puppeteer": "^23.6.0"
+  },
+  "keywords": [
+    "trustpilot",
+    "outreach",
+    "automation",
+    "lead-generation"
+  ],
+  "author": "",
+  "license": "ISC"
+}
