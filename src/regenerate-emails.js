@@ -94,15 +94,13 @@ async function regenerateEmails() {
       console.log('  Analyzing pain points...');
       const painPoints = await analyzeReviewsWithAI(reviews, company);
 
-      // Generate new email
+      // Generate new email (variant A — regenerate doesn't need A/B split)
       console.log('  Generating high-converting email...');
       const newEmail = await generateEmail({
         company,
         ceoName: info.ceoName || ceoName,
-        ceoEmail: info.email,
-        painPoints,
         reviews,
-        website: info.website
+        variant: 'A'
       });
 
       // Update the row

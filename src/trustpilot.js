@@ -1,5 +1,27 @@
 import puppeteer from 'puppeteer';
 
+const BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+function launchBrowser() {
+  return puppeteer.launch({ headless: true, args: BROWSER_ARGS });
+}
+
+/**
+ * Run find + scrape in a single browser session (avoids double launch per company).
+ */
+export async function findAndScrape(website, companyName, stars = [1, 2], maxReviews = 20) {
+  const browser = await launchBrowser();
+  try {
+    const trustpilot = await _findTrustpilotPage(browser, website, companyName);
+    if (!trustpilot.found) return { trustpilot, reviews: [] };
+    const reviews = await _scrapeReviews(browser, trustpilot.url, stars, maxReviews);
+    return { trustpilot, reviews };
+  } finally {
+    await browser.close();
+  }
+}
+
 /**
  * Scrape overall company rating from a Trustpilot page
  * @param {Page} page - Puppeteer page object
@@ -52,21 +74,10 @@ async function scrapeOverallRating(page) {
   }
 }
 
-/**
- * Search for a company's Trustpilot page
- * @param {string} website - Company website URL
- * @param {string} companyName - Company name as fallback
- * @returns {Promise<{found: boolean, url: string|null}>}
- */
-export async function findTrustpilotPage(website, companyName) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
+async function _findTrustpilotPage(browser, website, companyName) {
   try {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setUserAgent(USER_AGENT);
 
     // Extract domain from website
     let domain = '';
@@ -118,30 +129,15 @@ export async function findTrustpilotPage(website, companyName) {
   } catch (error) {
     console.error(`  Error searching Trustpilot: ${error.message}`);
     return { found: false, url: null, rating: null };
-  } finally {
-    await browser.close();
   }
 }
 
-/**
- * Scrape negative reviews (1-2 stars) from a Trustpilot company page
- * @param {string} url - Trustpilot company URL
- * @param {number[]} stars - Star ratings to filter (default: [1, 2])
- * @param {number} maxReviews - Maximum reviews to scrape (default: 20)
- * @returns {Promise<Array<{rating: number, title: string, text: string, date: string}>>}
- */
-export async function scrapeReviews(url, stars = [1, 2], maxReviews = 20) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
+async function _scrapeReviews(browser, url, stars = [1, 2], maxReviews = 20) {
   const reviews = [];
 
   try {
     const page = await browser.newPage();
-
-    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setUserAgent(USER_AGENT);
 
     // Navigate to reviews page filtered by star rating
     for (const star of stars) {
@@ -199,11 +195,28 @@ export async function scrapeReviews(url, stars = [1, 2], maxReviews = 20) {
 
   } catch (error) {
     console.error(`  Error scraping reviews: ${error.message}`);
-  } finally {
-    await browser.close();
   }
 
   return reviews.slice(0, maxReviews);
+}
+
+// Public wrappers that manage their own browser (for standalone use)
+export async function findTrustpilotPage(website, companyName) {
+  const browser = await launchBrowser();
+  try {
+    return await _findTrustpilotPage(browser, website, companyName);
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function scrapeReviews(url, stars = [1, 2], maxReviews = 20) {
+  const browser = await launchBrowser();
+  try {
+    return await _scrapeReviews(browser, url, stars, maxReviews);
+  } finally {
+    await browser.close();
+  }
 }
 
 /**

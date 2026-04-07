@@ -1,15 +1,19 @@
 import { google } from 'googleapis';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { URL } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.compose',
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.settings.basic'
 ];
-const TOKEN_PATH = './gmail-token.json';
+// Stored next to the source file so it works regardless of cwd
+const TOKEN_PATH = path.join(__dirname, '..', 'gmail-token.json');
 
 let gmailClient = null;
 
@@ -53,9 +57,11 @@ To set up Gmail API:
         const { credentials: newToken } = await oauth2Client.refreshAccessToken();
         oauth2Client.setCredentials(newToken);
         writeFileSync(TOKEN_PATH, JSON.stringify(newToken));
+        gmailClient = null; // force re-init with new credentials
         console.log('Token refreshed successfully');
       } catch (err) {
         console.log('Failed to refresh token, need re-authorization');
+        gmailClient = null;
         await authorizeUser(oauth2Client);
       }
     }
