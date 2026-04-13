@@ -159,6 +159,12 @@
       height: 20px;
       background: var(--chart-2);
       border-radius: 0 2px 2px 0;
+      animation: navIndicator 0.2s ease;
+    }
+
+    @keyframes navIndicator {
+      from { opacity: 0; height: 0; }
+      to { opacity: 1; height: 20px; }
     }
 
     .nav-item { position: relative; }
@@ -193,7 +199,6 @@
       flex: 1;
       margin-left: 240px;
       padding: 32px 40px;
-      max-width: 1100px;
     }
 
     /* Page Header */
@@ -664,12 +669,75 @@
     .field-status.invalid { color: var(--error); }
     .field-status.pending { color: var(--muted-foreground); }
 
-    /* Select mode button group */
-    .select-mode-btn { transition: all 0.15s; }
-    .select-mode-btn.active {
-      background: var(--primary) !important;
-      color: var(--primary-foreground) !important;
-      border-color: transparent !important;
+    /* Toggle button group — pill container with active indicator */
+    .btn-toggle-group {
+      display: inline-flex;
+      gap: 1px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+    }
+    .btn-toggle-group .btn-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      color: var(--muted-foreground);
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+      -webkit-font-smoothing: antialiased;
+    }
+    .btn-toggle-group .btn-toggle:hover {
+      color: var(--foreground);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .btn-toggle-group .btn-toggle.active {
+      color: var(--primary-foreground);
+      background: var(--primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Collapsible panel (accordion) */
+    .panel-header.collapsible {
+      cursor: pointer;
+      user-select: none;
+    }
+    .panel-header.collapsible:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .panel-header.collapsible .panel-chevron {
+      width: 16px;
+      height: 16px;
+      color: var(--muted-foreground);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .panel-header.collapsible.collapsed .panel-chevron {
+      transform: rotate(-90deg);
+    }
+    .panel-body-wrap {
+      display: grid;
+      grid-template-rows: 1fr;
+      transition: grid-template-rows 0.25s ease;
+    }
+    .panel-body-wrap.collapsed {
+      grid-template-rows: 0fr;
+    }
+    .panel-body-wrap > .panel-body {
+      overflow: hidden;
+      min-height: 0;
+    }
+    .panel-body-wrap.collapsed > .panel-body {
+      padding-top: 0;
+      padding-bottom: 0;
     }
 
     /* Hidden */
@@ -715,6 +783,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
+      table-layout: auto;
     }
 
     .tbl thead th {
@@ -809,9 +878,19 @@
       .btn { width: 100%; }
     }
 
-    /* Page sections */
-    .page-section { display: none; }
-    .page-section.active { display: block; }
+    /* Page sections — fade transition */
+    .page-section {
+      display: none;
+      opacity: 0;
+    }
+    .page-section.active {
+      display: block;
+      animation: pageFadeIn 0.2s ease forwards;
+    }
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
     /* Banner */
     .banner {
@@ -893,6 +972,15 @@
       color: var(--foreground);
     }
     /* Clickable truncated detail */
+    .lead-sched-time {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      color: var(--muted-foreground);
+      transition: color 0.15s;
+    }
+    .lead-sched-time:hover { color: var(--info); }
+
     .lead-detail.clickable {
       cursor: pointer;
       text-decoration: underline dotted;
@@ -916,6 +1004,21 @@
         <button class="detail-modal-close" onclick="closeDetailModal()">&times;</button>
       </div>
       <div class="detail-modal-body" id="detailModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Confirm modal (reusable) -->
+  <div class="detail-modal-overlay" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()">
+    <div class="detail-modal" style="max-width: 440px;">
+      <div class="detail-modal-header">
+        <h3 id="confirmModalTitle">Confirm</h3>
+        <button class="detail-modal-close" onclick="closeConfirmModal()">&times;</button>
+      </div>
+      <div class="detail-modal-body" id="confirmModalBody" style="white-space: normal; font-family: inherit; font-size: 13px; color: var(--muted-foreground);"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border);">
+        <button class="btn btn-ghost btn-sm" onclick="closeConfirmModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="confirmModalAction">Confirm</button>
+      </div>
     </div>
   </div>
   <div class="app">
@@ -965,82 +1068,102 @@
         </div>
 
         <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Gemini AI</span>
-            <span class="field-status pending" id="geminiStatus"></span>
-          </div>
-          <div class="panel-body">
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">API Key</label>
-                <div class="pw-wrap">
-                  <input type="password" id="setupGeminiKey" placeholder="AIza..." autocomplete="off">
-                  <button type="button" class="pw-toggle" onclick="togglePw('setupGeminiKey', this)">Show</button>
-                </div>
-              </div>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="testGeminiKey()" style="align-self: flex-end; margin-bottom: 0;">Test</button>
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Gemini AI</span>
+              <span class="field-status pending" id="geminiStatus"></span>
             </div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Google Sheet</span>
-            <span class="field-status pending" id="sheetStatus"></span>
-          </div>
-          <div class="panel-body">
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">Sheet URL or ID</label>
-                <input type="text" id="setupSheetId" placeholder="https://docs.google.com/spreadsheets/d/...">
-              </div>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="testSheetConnection()" style="align-self: flex-end;">Test</button>
-            </div>
-            <div class="field-hint">Paste the full Google Sheet URL or just the Sheet ID</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Gmail Account</span>
-            <span class="badge badge-idle" id="gmailSetupStatus">Checking...</span>
-          </div>
-          <div class="panel-body">
-            <div class="connected-row" id="gmailSetupSection">
-              <span class="connected-email" id="gmailSetupEmail"></span>
-              <div class="connected-actions">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="connectGmail()" id="connectGmailBtn">Connect</button>
-                <button type="button" class="btn btn-danger btn-sm" onclick="disconnectGmail()" id="disconnectGmailBtn" disabled>Disconnect</button>
-              </div>
-            </div>
-            <div class="field-hint">Connect the Gmail account you want to authorize for sending</div>
-
-            <!-- Send From -->
-            <div id="sendFromSection" class="hidden" style="margin-top: 14px;">
-              <label class="field-label">Send Emails From</label>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body">
               <div class="field-row">
                 <div class="field">
-                  <select id="sendFromEmail" onchange="saveSendFrom()">
-                    <option value="">Loading addresses...</option>
-                  </select>
+                  <label class="field-label">API Key</label>
+                  <div class="pw-wrap">
+                    <input type="password" id="setupGeminiKey" placeholder="AIza..." autocomplete="off">
+                    <button type="button" class="pw-toggle" onclick="togglePw('setupGeminiKey', this)">Show</button>
+                  </div>
                 </div>
-                <span class="field-status pending" id="sendFromStatus"></span>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="testGeminiKey()" style="align-self: flex-end; margin-bottom: 0;">Test</button>
               </div>
-              <div class="field-hint">Choose which email address appears as the sender</div>
             </div>
           </div>
         </div>
 
         <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Service Account</span>
-            <span class="badge badge-idle" id="serviceAccountStatus">Checking...</span>
-          </div>
-          <div class="panel-body">
-            <div class="connected-row">
-              <span class="connected-email" id="serviceAccountEmail" style="word-break: break-all;"></span>
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Google Sheet</span>
+              <span class="field-status pending" id="sheetStatus"></span>
             </div>
-            <div class="field-hint">Share your Google Sheet with this email address</div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body">
+              <div class="field-row">
+                <div class="field">
+                  <label class="field-label">Sheet URL or ID</label>
+                  <input type="text" id="setupSheetId" placeholder="https://docs.google.com/spreadsheets/d/...">
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="testSheetConnection()" style="align-self: flex-end;">Test</button>
+              </div>
+              <div class="field-hint">Paste the full Google Sheet URL or just the Sheet ID</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Gmail Account</span>
+              <span class="badge badge-idle" id="gmailSetupStatus">Checking...</span>
+            </div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body">
+              <div class="connected-row" id="gmailSetupSection">
+                <span class="connected-email" id="gmailSetupEmail"></span>
+                <div class="connected-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="connectGmail()" id="connectGmailBtn">Connect</button>
+                  <button type="button" class="btn btn-danger btn-sm" onclick="disconnectGmail()" id="disconnectGmailBtn" disabled>Disconnect</button>
+                </div>
+              </div>
+              <div class="field-hint">Connect the Gmail account you want to authorize for sending</div>
+
+              <!-- Send From -->
+              <div id="sendFromSection" class="hidden" style="margin-top: 14px;">
+                <label class="field-label">Send Emails From</label>
+                <div class="field-row">
+                  <div class="field">
+                    <select id="sendFromEmail" onchange="saveSendFrom()">
+                      <option value="">Loading addresses...</option>
+                    </select>
+                  </div>
+                  <span class="field-status pending" id="sendFromStatus"></span>
+                </div>
+                <div class="field-hint">Choose which email address appears as the sender</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Service Account</span>
+              <span class="badge badge-idle" id="serviceAccountStatus">Checking...</span>
+            </div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body">
+              <div class="connected-row">
+                <span class="connected-email" id="serviceAccountEmail" style="word-break: break-all;"></span>
+              </div>
+              <div class="field-hint">Share your Google Sheet with this email address</div>
+            </div>
           </div>
         </div>
 
@@ -1049,29 +1172,15 @@
             <span class="panel-title">Import Leads</span>
           </div>
           <div class="panel-body">
-            <div class="field">
-              <label class="field-label">Upload CSV or XML</label>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="file" id="importFile" accept=".csv,.xml" style="flex: 1; font-size: 13px; color: var(--muted-foreground);">
-              </div>
-              <div class="field-hint">CSV columns: firstName, lastName, company, email, website. Rows are appended to the sheet.</div>
-            </div>
-            <div class="btn-row" style="margin-top: 12px;">
-              <button class="btn btn-primary" id="importBtn" onclick="importAndSync()">
+            <div class="field-hint" style="margin-bottom: 12px;">CSV columns: firstName, lastName, company, email, website. Only leads with both email and website are imported.</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button class="btn btn-primary" id="importBtn" onclick="triggerImport()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Import &amp; Sync
               </button>
-              <span id="importResult" style="font-size: 12px; align-self: center;"></span>
+              <span id="importResult" style="font-size: 12px;"></span>
             </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-body">
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="saveSetupSettings()">Save Settings</button>
-              <span id="saveStatus" style="align-self: center; font-size: 12px;"></span>
-            </div>
+            <input type="file" id="importFile" accept=".csv,.xml" class="hidden">
           </div>
         </div>
       </section>
@@ -1120,14 +1229,23 @@
         <div class="panel">
           <div class="panel-header">
             <span class="panel-title">Leads</span>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="badge badge-idle" id="statusBadge">Idle</span>
-              <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Refresh leads">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-              </button>
-            </div>
+            <span class="badge badge-idle" id="statusBadge">Idle</span>
           </div>
           <div class="panel-body" style="padding: 0;">
+            <!-- Filter bar -->
+            <div id="leadsFilterBar" style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
+              <span style="font-size: 11px; font-weight: 500; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em;">Filter</span>
+              <div class="btn-toggle-group">
+                <button class="btn-toggle active" onclick="setLeadFilter('all', this)">All</button>
+                <button class="btn-toggle" onclick="setLeadFilter('done', this)">Done</button>
+                <button class="btn-toggle" onclick="setLeadFilter('skipped', this)">Skipped</button>
+                <button class="btn-toggle" onclick="setLeadFilter('failed', this)">Failed</button>
+                <button class="btn-toggle" onclick="setLeadFilter('scheduled', this)">Scheduled</button>
+              </div>
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
+                <input type="text" id="leadSearchInput" placeholder="Search leads..." oninput="applyLeadFilters()" style="width: 180px; padding: 5px 10px; font-size: 12px; height: 28px; border-radius: var(--radius-xs);">
+              </div>
+            </div>
             <div id="leadsLoading" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
               Loading leads from sheet...
             </div>
@@ -1146,8 +1264,9 @@
                     <th>Company</th>
                     <th>Email</th>
                     <th>Website</th>
-                    <th style="width: 160px;">Status</th>
-                    <th style="width: 200px;">Draft</th>
+                    <th style="width: 130px;">Status</th>
+                    <th style="width: 150px;">Scheduled</th>
+                    <th style="width: 180px;">Draft</th>
                     <th style="width: 80px;">Actions</th>
                   </tr>
                 </thead>
@@ -1156,12 +1275,12 @@
             </div>
           </div>
           <div class="panel-footer" id="leadsActions" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);">
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
               <span style="font-size: 12px; color: var(--muted-foreground);" id="selectedCount">0 selected</span>
-              <div style="display: flex; gap: 4px; background: var(--secondary); border-radius: var(--radius-xs); padding: 2px;">
-                <button class="btn btn-ghost btn-sm select-mode-btn active" id="selUnprocessed" onclick="selectUnprocessed()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">Unprocessed</button>
-                <button class="btn btn-ghost btn-sm select-mode-btn" id="selPage" onclick="selectPage()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">Page</button>
-                <button class="btn btn-ghost btn-sm select-mode-btn" id="selAll" onclick="selectAllLeads()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">All</button>
+              <div class="btn-toggle-group">
+                <button class="btn-toggle active" id="selUnprocessed" onclick="selectUnprocessed()">Unprocessed</button>
+                <button class="btn-toggle" id="selPage" onclick="selectPage()">Page</button>
+                <button class="btn-toggle" id="selAll" onclick="selectAllLeads()">All</button>
               </div>
               <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Sync leads from sheet">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
@@ -1403,6 +1522,15 @@
       document.getElementById('sidebarStatusText').textContent = text;
     }
 
+    // ============ ACCORDION PANELS ============
+    function togglePanel(headerEl) {
+      headerEl.classList.toggle('collapsed');
+      const bodyWrap = headerEl.nextElementSibling;
+      if (bodyWrap && bodyWrap.classList.contains('panel-body-wrap')) {
+        bodyWrap.classList.toggle('collapsed');
+      }
+    }
+
     // ============ SETUP / SETTINGS ============
     let pollInterval = null;
 
@@ -1558,31 +1686,73 @@
       } catch (err) { console.error(err); }
     }
 
-    async function saveSetupSettings() {
-      const geminiKey = document.getElementById('setupGeminiKey').value;
-      const sheetId = document.getElementById('setupSheetId').value;
-      const statusEl = document.getElementById('saveStatus');
-      statusEl.style.color = 'var(--muted-foreground)';
-      statusEl.textContent = 'Saving...';
-      try {
-        const res = await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ geminiApiKey: geminiKey, googleSheetId: sheetId })
-        });
-        const data = await res.json();
-        if (data.success) {
-          statusEl.style.color = 'var(--success)';
-          statusEl.textContent = 'Settings saved';
-          setTimeout(() => { statusEl.textContent = ''; }, 3000);
-        } else {
-          statusEl.style.color = 'var(--error)';
-          statusEl.textContent = 'Error: ' + (data.error || 'Failed');
+    // Auto-save settings on input blur (no Save button needed)
+    let _autoSaveTimer = null;
+    function autoSaveSettings() {
+      clearTimeout(_autoSaveTimer);
+      _autoSaveTimer = setTimeout(async () => {
+        const geminiKey = document.getElementById('setupGeminiKey').value;
+        const sheetId = document.getElementById('setupSheetId').value;
+        try {
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ geminiApiKey: geminiKey, googleSheetId: sheetId })
+          });
+        } catch (err) {
+          console.error('Auto-save failed:', err);
         }
-      } catch (err) {
-        statusEl.style.color = 'var(--error)';
-        statusEl.textContent = 'Error: ' + err.message;
-      }
+      }, 500);
+    }
+
+    // Attach auto-save listeners once DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      const geminiInput = document.getElementById('setupGeminiKey');
+      const sheetInput = document.getElementById('setupSheetId');
+      if (geminiInput) geminiInput.addEventListener('blur', autoSaveSettings);
+      if (sheetInput) sheetInput.addEventListener('blur', autoSaveSettings);
+    });
+
+    // Confirm modal helpers
+    let _confirmResolve = null;
+    function openConfirmModal(title, body, actionText) {
+      document.getElementById('confirmModalTitle').textContent = title;
+      document.getElementById('confirmModalBody').innerHTML = body;
+      document.getElementById('confirmModalAction').textContent = actionText || 'Confirm';
+      document.getElementById('confirmModal').classList.add('open');
+      return new Promise(resolve => {
+        _confirmResolve = resolve;
+        document.getElementById('confirmModalAction').onclick = () => {
+          _confirmResolve = null;
+          document.getElementById('confirmModal').classList.remove('open');
+          resolve(true);
+        };
+      });
+    }
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.remove('open');
+      if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+    }
+
+    function triggerImport() {
+      const fileInput = document.getElementById('importFile');
+      fileInput.onchange = async () => {
+        if (!fileInput.files.length) return;
+        const fileName = fileInput.files[0].name;
+        const confirmed = await openConfirmModal(
+          'Replace Lead List?',
+          `<strong>${esc(fileName)}</strong> will be appended to your Google Sheet.<br><br>` +
+          'This will add new rows to the existing lead list. Duplicate entries are not automatically filtered.' +
+          '<br><br><span style="color: var(--muted-foreground);">Only leads with both <strong>email</strong> and <strong>website</strong> will be imported. Others will be skipped.</span>' +
+          '<br><span style="color: var(--warning);">CSV format: firstName, lastName, company, email, website.</span>'
+        );
+        if (confirmed) {
+          await importAndSync();
+        } else {
+          fileInput.value = '';
+        }
+      };
+      fileInput.click();
     }
 
     async function importAndSync() {
@@ -1590,11 +1760,7 @@
       const resultEl = document.getElementById('importResult');
       const btn = document.getElementById('importBtn');
 
-      if (!fileInput.files.length) {
-        resultEl.style.color = 'var(--error)';
-        resultEl.textContent = 'Select a file first.';
-        return;
-      }
+      if (!fileInput.files.length) return;
 
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
@@ -1614,18 +1780,32 @@
         }
 
         resultEl.style.color = 'var(--success)';
-        resultEl.textContent = `Imported ${data.imported} leads. Syncing...`;
+        let msg = `Imported ${data.imported} of ${data.totalParsed || data.imported} leads.`;
+        if (data.skipped > 0) {
+          msg += ` ${data.skipped} skipped (missing fields).`;
+        }
+        resultEl.textContent = msg;
         fileInput.value = '';
 
-        resultEl.textContent = `Imported ${data.imported} leads. Syncing...`;
+        // Show skip details in a toast if any were skipped
+        if (data.skipped > 0 && data.skippedDetails && data.skippedDetails.length > 0) {
+          const details = data.skippedDetails.slice(0, 10).map(d =>
+            `<li><strong>${esc(d.name)}</strong> — missing ${d.missing.join(', ')}</li>`
+          ).join('');
+          const extra = data.skippedDetails.length > 10 ? `<li style="color:var(--muted-foreground);">...and ${data.skippedDetails.length - 10} more</li>` : '';
+          openConfirmModal('Import Summary', `
+            <p style="margin-bottom:10px;color:var(--success);">Successfully imported <strong>${data.imported}</strong> leads.</p>
+            <p style="margin-bottom:8px;color:var(--warning);">${data.skipped} leads skipped (missing email or website):</p>
+            <ul style="font-size:12px;max-height:200px;overflow-y:auto;padding-left:18px;line-height:1.8;">${details}${extra}</ul>
+          `, 'Got it');
+        }
 
-        // Short pause so user sees the success, then sync and redirect
         setTimeout(async () => {
           await loadLeads();
           showPage('process');
           btn.disabled = false;
           resultEl.textContent = '';
-        }, 800);
+        }, data.skipped > 0 ? 100 : 800);
 
       } catch (err) {
         resultEl.style.color = 'var(--error)';
@@ -1676,6 +1856,9 @@
     let allLeads = [];
     let currentPage = 1;
     const LEADS_PER_PAGE = 15;
+    let activeLeadFilter = 'all';
+    let leadSearchQuery = '';
+    let leadsTimezone = 'America/New_York';
 
     async function loadLeads() {
       const loading = document.getElementById('leadsLoading');
@@ -1689,6 +1872,7 @@
         const res = await fetch('/api/leads');
         const data = await res.json();
         allLeads = data.leads || [];
+        if (data.timezone) leadsTimezone = data.timezone;
 
         loading.classList.add('hidden');
         if (allLeads.length === 0) {
@@ -1698,13 +1882,58 @@
 
         wrap.classList.remove('hidden');
         currentPage = 1;
-        renderLeadsTable(allLeads);
+        renderLeadsTable(getFilteredLeads());
       } catch (err) {
         loading.textContent = 'Failed to load leads: ' + err.message;
       }
     }
 
+    function setLeadFilter(filter, btn) {
+      activeLeadFilter = filter;
+      // Update toggle active state within this filter bar's toggle group
+      const group = btn.closest('.btn-toggle-group');
+      group.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPage = 1;
+      applyLeadFilters();
+    }
+
+    function applyLeadFilters() {
+      leadSearchQuery = (document.getElementById('leadSearchInput')?.value || '').toLowerCase().trim();
+      currentPage = 1;
+      renderLeadsTable(getFilteredLeads());
+    }
+
+    function getFilteredLeads() {
+      let filtered = allLeads;
+
+      // Status filter
+      if (activeLeadFilter !== 'all') {
+        filtered = filtered.filter(lead => {
+          const s = (lead.status || '').toLowerCase();
+          switch (activeLeadFilter) {
+            case 'done': return s.includes('done') || s.includes('processed') || s.includes('sent') || s.includes('generated') || s.includes('drafted');
+            case 'skipped': return s.includes('skipped');
+            case 'failed': return s.includes('failed');
+            case 'scheduled': return s.includes('scheduled');
+            default: return true;
+          }
+        });
+      }
+
+      // Search filter
+      if (leadSearchQuery) {
+        filtered = filtered.filter(lead => {
+          const haystack = [lead.firstName, lead.lastName, lead.company, lead.email, lead.website, lead.status].filter(Boolean).join(' ').toLowerCase();
+          return haystack.includes(leadSearchQuery);
+        });
+      }
+
+      return filtered;
+    }
+
     function renderLeadsTable(leads) {
+      if (!leads) leads = getFilteredLeads();
       // Sort: unprocessed first, processed at bottom
       const sorted = [...leads].sort((a, b) => {
         const aProc = isProcessed(a.status);
@@ -1755,6 +1984,11 @@
           <td>
             <span class="lead-status ${statusClass || 'lead-status-none'}" id="lead-status-${lead.rowNumber}">${esc(lead.status) || '—'}</span>
             <span class="lead-detail" id="lead-detail-${lead.rowNumber}"></span>
+          </td>
+          <td style="font-size: 11px; color: var(--muted-foreground);">
+            ${lead.scheduledTime
+              ? `<span id="sched-${lead.rowNumber}" style="cursor: pointer;" onclick="editScheduleTime(${lead.rowNumber}, '${esc(lead.company)}', '${esc(lead.email)}')" title="Click to reschedule">${formatLeadScheduledTime(lead.scheduledTime)}</span>`
+              : '<span style="opacity:0.4;">—</span>'}
           </td>
           <td style="font-size: 11px; color: var(--muted-foreground);">
             ${hasDraft
@@ -1827,7 +2061,7 @@
     }
 
     function setActiveSelectMode(btnId) {
-      document.querySelectorAll('.select-mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
       const btn = document.getElementById(btnId);
       if (btn) btn.classList.add('active');
     }
@@ -2061,6 +2295,80 @@
       }
     }
 
+    // Format a scheduled time string for display in leads table
+    function formatLeadScheduledTime(timeStr) {
+      if (!timeStr) return '—';
+      try {
+        const date = new Date(timeStr);
+        if (isNaN(date.getTime())) {
+          // Try as-is (e.g. "Jan 25, 2026, 2:00 PM")
+          return timeStr.length > 20 ? timeStr.substring(0, 20) + '...' : timeStr;
+        }
+        const tz = leadsTimezone;
+        const label = TIMEZONE_LABELS[tz] || tz.split('/').pop();
+        const fmt = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+        return date.toLocaleString('en-US', { timeZone: tz, ...fmt }) + ' ' + label;
+      } catch (e) {
+        return timeStr.substring(0, 20);
+      }
+    }
+
+    // Edit scheduled time for a lead via modal
+    async function editScheduleTime(rowNumber, company, email) {
+      const lead = allLeads.find(l => l.rowNumber === rowNumber);
+      const currentTime = lead?.scheduledTime || '';
+
+      // Build a datetime-local default value
+      let defaultVal = '';
+      try {
+        const d = new Date(currentTime);
+        if (!isNaN(d.getTime())) {
+          // Convert to local datetime string for the input
+          const tzDate = new Date(d.toLocaleString('en-US', { timeZone: leadsTimezone }));
+          defaultVal = new Date(tzDate.getTime() - tzDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        }
+      } catch (e) {}
+
+      const tz = leadsTimezone;
+      const tzLabel = TIMEZONE_LABELS[tz] || tz;
+
+      const confirmed = await openConfirmModal(
+        'Reschedule Email',
+        `<div style="margin-bottom: 12px;">Reschedule email for <strong>${esc(company)}</strong></div>` +
+        `<div style="margin-bottom: 6px;"><span style="font-size: 11px; color: var(--muted-foreground);">New time (${tzLabel})</span></div>` +
+        `<input type="datetime-local" id="rescheduleTimeInput" value="${defaultVal}" style="width: 100%; padding: 8px 12px; font-size: 13px; background: var(--input); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-xs); color: var(--foreground);">` +
+        `<div style="margin-top: 8px; font-size: 11px; color: var(--muted-foreground);">This will update the send time in the schedule. The email will be sent at the new time.</div>`
+      );
+
+      if (!confirmed) return;
+
+      const newTimeInput = document.getElementById('rescheduleTimeInput')?.value;
+      if (!newTimeInput) return;
+
+      // Convert the local datetime-local to proper ISO using the user's timezone
+      const newDate = new Date(newTimeInput);
+      // datetime-local gives us a naive date; we need to interpret it as being in the user's tz
+      // We'll send the raw value and let the server handle timezone conversion
+      const isoTime = newDate.toISOString();
+
+      try {
+        const res = await fetch('/api/schedule/reschedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company, newTime: isoTime })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          addLog(`Rescheduled ${company}: ${formatLeadScheduledTime(isoTime)}`);
+          await loadLeads();
+        } else {
+          addLog(`Reschedule failed: ${data.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        addLog(`Reschedule error: ${err.message}`);
+      }
+    }
+
     // Load leads on init and poll status
     loadLeads();
     updateStatus();
@@ -2163,24 +2471,72 @@
         const res = await fetch('/api/schedule/recovery');
         const data = await res.json();
         if (!data.lastRecovery) return;
-        const total = data.recovered + data.rescheduled + data.expired;
+        const total = (data.recovered || 0) + (data.rescheduled || 0) + (data.expired || 0);
         if (total === 0) return;
-        const banner = document.getElementById('recoveryBanner');
-        banner.classList.remove('hidden');
-        banner.className = 'banner ' + (data.expired > 0 ? 'banner-warn' : 'banner-success');
-        const parts = [];
-        if (data.recovered > 0) parts.push(`${data.recovered} restored`);
-        if (data.rescheduled > 0) parts.push(`${data.rescheduled} rescheduled`);
-        if (data.expired > 0) parts.push(`${data.expired} expired`);
-        document.getElementById('recoveryMessage').innerHTML = `<strong>Schedule Recovery:</strong> ${parts.join(', ')}`;
-        if (data.details && data.details.length > 0) {
-          document.getElementById('recoveryDetails').innerHTML = data.details.map(d => {
-            if (d.action === 'restored') return `${d.company}: restored`;
-            if (d.action === 'rescheduled') return `${d.company}: moved +${d.daysAdded}d`;
-            if (d.action === 'expired') return `${d.company}: expired (${d.daysOverdue}d overdue)`;
-            return `${d.company}: ${d.action}`;
-          }).join(' | ');
+
+        const tz = data.timezone || 'America/New_York';
+        const tzLabel = TIMEZONE_LABELS[tz] || tz;
+
+        // Show banner for simple recoveries
+        if (data.recovered > 0 && data.rescheduled === 0 && data.expired === 0) {
+          const banner = document.getElementById('recoveryBanner');
+          banner.classList.remove('hidden');
+          banner.className = 'banner banner-success';
+          document.getElementById('recoveryMessage').innerHTML = `<strong>Schedule Recovery:</strong> ${data.recovered} email(s) restored and will send at their original times.`;
+          document.getElementById('recoveryDetails').innerHTML = '';
+          startSchedulePolling();
+          return;
         }
+
+        // Show popup for rescheduled/expired items that need user attention
+        const needsAction = (data.rescheduled > 0 || data.expired > 0);
+        if (!needsAction) return;
+
+        let detailRows = '';
+        if (data.details && data.details.length > 0) {
+          detailRows = '<div style="margin: 12px 0; max-height: 200px; overflow-y: auto;">' +
+            '<table style="width: 100%; font-size: 12px; border-collapse: collapse;">' +
+            '<thead><tr style="border-bottom: 1px solid var(--border);">' +
+            '<th style="text-align: left; padding: 4px 8px; color: var(--muted-foreground);">Company</th>' +
+            '<th style="text-align: left; padding: 4px 8px; color: var(--muted-foreground);">Status</th>' +
+            '<th style="text-align: left; padding: 4px 8px; color: var(--muted-foreground);">Detail</th>' +
+            '</tr></thead><tbody>' +
+            data.details.map(d => {
+              let status = d.action, detail = '';
+              if (d.action === 'restored') { status = '<span style="color:var(--success);">Restored</span>'; detail = 'Will send on time'; }
+              else if (d.action === 'rescheduled') { status = '<span style="color:var(--warning);">Rescheduled</span>'; detail = `Moved +${d.daysAdded} day(s)`; }
+              else if (d.action === 'expired') { status = '<span style="color:var(--error);">Expired</span>'; detail = `${d.daysOverdue} day(s) overdue`; }
+              return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 4px 8px;">${d.company}</td><td style="padding: 4px 8px;">${status}</td><td style="padding: 4px 8px; color: var(--muted-foreground);">${detail}</td></tr>`;
+            }).join('') +
+            '</tbody></table></div>';
+        }
+
+        const summary = [];
+        if (data.recovered > 0) summary.push(`<strong>${data.recovered}</strong> restored`);
+        if (data.rescheduled > 0) summary.push(`<strong>${data.rescheduled}</strong> rescheduled (rolled forward)`);
+        if (data.expired > 0) summary.push(`<strong>${data.expired}</strong> expired (7+ days overdue)`);
+
+        const body =
+          `<div style="margin-bottom: 8px;">The server found <strong>${total}</strong> scheduled email(s) from a previous session:</div>` +
+          `<div style="margin-bottom: 8px;">${summary.join(' · ')}</div>` +
+          detailRows +
+          `<div style="margin-top: 12px; padding: 10px; background: var(--warning-dim); border-radius: var(--radius-xs); font-size: 12px; color: var(--warning);">` +
+          `Rescheduled emails were automatically moved to the next available time slot. ` +
+          `You can change individual send times from the Leads table (click the scheduled time).` +
+          `</div>`;
+
+        // Use a non-blocking modal — just informational with dismiss
+        document.getElementById('confirmModalTitle').textContent = 'Schedule Recovery';
+        document.getElementById('confirmModalBody').innerHTML = body;
+        document.getElementById('confirmModalAction').textContent = 'Go to Schedule';
+        document.getElementById('confirmModal').classList.add('open');
+
+        _confirmResolve = null;
+        document.getElementById('confirmModalAction').onclick = () => {
+          closeConfirmModal();
+          showPage('schedule');
+        };
+
         if (data.recovered > 0 || data.rescheduled > 0) startSchedulePolling();
       } catch (error) { console.error(error); }
     }

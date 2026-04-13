@@ -727,7 +727,28 @@ async function recoverScheduledEmails() {
 app.get('/api/leads', async (req, res) => {
   try {
     const leads = await readAllLeads(2);
-    res.json({ leads });
+
+    // Enrich with scheduled time from Emails tab
+    try {
+      const emailsData = await getAllEmails();
+      const emailMap = new Map();
+      for (const e of emailsData) {
+        if (e.ceoEmail) emailMap.set(e.ceoEmail.toLowerCase(), e);
+      }
+      for (const lead of leads) {
+        const match = emailMap.get((lead.email || '').toLowerCase());
+        if (match) {
+          lead.scheduledTime = match.scheduledTime || '';
+          lead.scheduleStatus = match.status || '';
+        }
+      }
+    } catch (e) {
+      // Emails tab may not exist yet — that's OK
+    }
+
+    // Include the user's selected timezone
+    const tz = scheduleJob.settings.timezone || 'America/New_York';
+    res.json({ leads, timezone: tz });
   } catch (error) {
     res.status(500).json({ error: error.message, leads: [] });
   }
@@ -836,12 +857,40 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Unsupported file type. Use CSV or XML.' });
     }
 
-    if (leads.length === 0) {
-      return res.status(400).json({ error: 'No valid leads found in file. Check column headers (company, email, website, firstName, lastName).' });
+    // Filter: require both email and website
+    const valid = [];
+    const skipped = [];
+
+    for (const lead of leads) {
+      const missing = [];
+      if (!lead.email) missing.push('email');
+      if (!lead.website) missing.push('website');
+
+      if (missing.length > 0) {
+        const identifier = lead.company || lead.firstName || lead.lastName || '(unnamed)';
+        skipped.push({ name: identifier, missing });
+      } else {
+        valid.push(lead);
+      }
     }
 
-    const count = await appendLeadsToSheet(leads);
-    res.json({ success: true, imported: count });
+    if (valid.length === 0) {
+      return res.status(400).json({
+        error: 'No valid leads found. All rows are missing email or website.',
+        totalParsed: leads.length,
+        skipped: skipped.length,
+        skippedDetails: skipped.slice(0, 20)
+      });
+    }
+
+    const count = await appendLeadsToSheet(valid);
+    res.json({
+      success: true,
+      imported: count,
+      totalParsed: leads.length,
+      skipped: skipped.length,
+      skippedDetails: skipped.slice(0, 30)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1285,7 +1334,8 @@ app.get('/api/schedule/status', async (req, res) => {
 
 // API: Get recovery status (from last server startup)
 app.get('/api/schedule/recovery', (req, res) => {
-  res.json(recoveryStatus);
+  const timezone = scheduleJob.settings.timezone || 'America/New_York';
+  res.json({ ...recoveryStatus, timezone });
 });
 
 // API: Manually trigger recovery (re-scan sheet for scheduled emails)
