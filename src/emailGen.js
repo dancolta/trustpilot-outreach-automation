@@ -7,14 +7,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 let genAI = null;
+let cachedKey = null;
 
 function getClient() {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-      throw new Error('GEMINI_API_KEY is not configured.');
-    }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+    throw new Error('GEMINI_API_KEY is not configured.');
+  }
+  // Reset client if API key changed (e.g. updated via settings)
+  if (!genAI || cachedKey !== apiKey) {
     genAI = new GoogleGenerativeAI(apiKey);
+    cachedKey = apiKey;
   }
   return genAI;
 }
@@ -72,7 +75,7 @@ What's your current approach during spikes?`
  */
 async function generateVariant(variant, { firstName, reviews, company, reviewsText }) {
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const prompt = `You are writing a cold email following the "${variant.name}" conversion strategy.
 
@@ -212,7 +215,7 @@ export async function analyzeReviewsWithAI(reviews, company) {
   }
 
   const client = getClient();
-  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const reviewText = reviews
     .map((r, i) => `${i + 1}. [${r.rating}★] "${r.title}" - ${r.text}`)

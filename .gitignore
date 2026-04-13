@@ -8,6 +8,7 @@ node_modules/
 credentials.json
 gmail-credentials.json
 gmail-token.json
+settings.json
 
 # OS files
 .DS_Store

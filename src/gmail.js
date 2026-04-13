@@ -217,12 +217,29 @@ export async function getSignature() {
 
 /**
  * Create a draft email with HTML formatting and signature
+ * @param {string} to - recipient email
+ * @param {string} subject - email subject
+ * @param {string} body - email body (plain text with markdown italics)
+ * @param {string} [fromEmail] - optional send-as address to use as sender
  */
-export async function createDraftWithSignature(to, subject, body) {
+export async function createDraftWithSignature(to, subject, body, fromEmail) {
   const gmail = await getGmailClient();
 
-  // Get user's signature
-  const signature = await getSignature();
+  // Get signature for the sender address
+  let signature = '';
+  try {
+    if (fromEmail) {
+      const sendAs = await gmail.users.settings.sendAs.get({
+        userId: 'me',
+        sendAsEmail: fromEmail
+      });
+      signature = sendAs.data.signature || '';
+    } else {
+      signature = await getSignature();
+    }
+  } catch (e) {
+    signature = await getSignature();
+  }
 
   // Convert markdown-style italics (*"text"*) to HTML italics
   let htmlBody = body
@@ -236,14 +253,17 @@ export async function createDraftWithSignature(to, subject, body) {
   }
 
   // Create email in RFC 2822 format with HTML content
-  const email = [
-    `To: ${to}`,
+  const headers = [`To: ${to}`];
+  if (fromEmail) {
+    headers.push(`From: ${fromEmail}`);
+  }
+  headers.push(
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=utf-8',
-    '',
-    htmlBody
-  ].join('\r\n');
+    'Content-Type: text/html; charset=utf-8'
+  );
+
+  const email = [...headers, '', htmlBody].join('\r\n');
 
   // Encode to base64url
   const encodedEmail = Buffer.from(email)
@@ -265,12 +285,78 @@ export async function createDraftWithSignature(to, subject, body) {
 }
 
 /**
+ * Update (replace) an existing Gmail draft
+ */
+export async function updateDraft(draftId, to, subject, body, fromEmail) {
+  const gmail = await getGmailClient();
+
+  let signature = '';
+  try {
+    if (fromEmail) {
+      const sendAs = await gmail.users.settings.sendAs.get({ userId: 'me', sendAsEmail: fromEmail });
+      signature = sendAs.data.signature || '';
+    } else {
+      signature = await getSignature();
+    }
+  } catch (e) {
+    signature = await getSignature();
+  }
+
+  let htmlBody = body
+    .replace(/\*"([^"]+)"\*/g, '<em>"$1"</em>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+
+  if (signature) {
+    htmlBody += '<br><br>--<br>' + signature;
+  }
+
+  const headers = [`To: ${to}`];
+  if (fromEmail) headers.push(`From: ${fromEmail}`);
+  headers.push(`Subject: ${subject}`, 'MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8');
+
+  const email = [...headers, '', htmlBody].join('\r\n');
+  const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const response = await gmail.users.drafts.update({
+    userId: 'me',
+    id: draftId,
+    requestBody: { message: { raw: encodedEmail } }
+  });
+
+  return response.data;
+}
+
+/**
+ * Delete a Gmail draft
+ */
+export async function deleteDraft(draftId) {
+  const gmail = await getGmailClient();
+  await gmail.users.drafts.delete({ userId: 'me', id: draftId });
+}
+
+/**
  * Get user's email address (for verification)
  */
 export async function getMyEmail() {
   const gmail = await getGmailClient();
   const response = await gmail.users.getProfile({ userId: 'me' });
   return response.data.emailAddress;
+}
+
+/**
+ * List all send-as addresses (aliases) the user can send from
+ */
+export async function getSendAsAddresses() {
+  const gmail = await getGmailClient();
+  const response = await gmail.users.settings.sendAs.list({ userId: 'me' });
+  return (response.data.sendAs || []).map(alias => ({
+    email: alias.sendAsEmail,
+    displayName: alias.displayName || '',
+    isDefault: alias.isDefault || false,
+    isPrimary: alias.isPrimary || false,
+    verificationStatus: alias.verificationStatus
+  })).filter(a => a.verificationStatus === 'accepted' || a.isPrimary);
 }
 
 /**

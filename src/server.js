@@ -3,16 +3,396 @@ import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readCompanies, writeOutreach, markAsProcessed, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow } from './sheets.js';
-import { createDraft, createDraftWithSignature, getMyEmail, findDraftByRecipientAndSubject, sendDraft, getGmailClient } from './gmail.js';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
+import { readCompanies, readAllLeads, appendLeadsToSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow } from './sheets.js';
+import multer from 'multer';
+import { createDraft, createDraftWithSignature, updateDraft, deleteDraft, getMyEmail, findDraftByRecipientAndSubject, sendDraft, getGmailClient, getSendAsAddresses } from './gmail.js';
 import { findTrustpilotPage, scrapeReviews, extractPainPoints } from './trustpilot.js';
 import { generateEmail } from './emailGen.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '..');
+const SETTINGS_PATH = join(PROJECT_ROOT, 'settings.json');
+
+// ============ SETTINGS PERSISTENCE ============
+
+/**
+ * Load settings from settings.json and apply to process.env
+ */
+function loadSettings() {
+  try {
+    if (existsSync(SETTINGS_PATH)) {
+      const settings = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+      if (settings.geminiApiKey) process.env.GEMINI_API_KEY = settings.geminiApiKey;
+      if (settings.googleSheetId) process.env.GOOGLE_SHEET_ID = settings.googleSheetId;
+      console.log('[SETTINGS] Loaded settings.json (overrides .env)');
+      return settings;
+    }
+  } catch (err) {
+    console.error('[SETTINGS] Failed to load settings.json:', err.message);
+  }
+  return {};
+}
+
+/**
+ * Save settings to settings.json
+ */
+function saveSettings(settings) {
+  try {
+    // Read existing settings to merge
+    let existing = {};
+    if (existsSync(SETTINGS_PATH)) {
+      existing = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+    }
+    const merged = { ...existing, ...settings };
+    writeFileSync(SETTINGS_PATH, JSON.stringify(merged, null, 2));
+    console.log('[SETTINGS] Saved settings.json');
+    return merged;
+  } catch (err) {
+    console.error('[SETTINGS] Failed to save settings.json:', err.message);
+    throw err;
+  }
+}
+
+/**
+ * Extract Google Sheet ID from a URL or return the raw ID
+ */
+function extractSheetId(input) {
+  if (!input) return input;
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : input.trim();
+}
+
+/**
+ * Mask a string showing only last 4 characters
+ */
+function maskString(str) {
+  if (!str || str.length <= 4) return str || '';
+  return '*'.repeat(str.length - 4) + str.slice(-4);
+}
+
+/**
+ * Read service account email from credentials.json
+ */
+function getServiceAccountInfo() {
+  try {
+    const credPath = process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json';
+    const resolved = join(PROJECT_ROOT, credPath.replace(/^\.\//, ''));
+    if (existsSync(resolved)) {
+      const creds = JSON.parse(readFileSync(resolved, 'utf8'));
+      return { email: creds.client_email || '', connected: true };
+    }
+  } catch (err) { /* ignore */ }
+  return { email: '', connected: false };
+}
+
+/**
+ * Check if Gmail token exists
+ */
+function getGmailStatus() {
+  const tokenPath = join(PROJECT_ROOT, 'gmail-token.json');
+  try {
+    if (existsSync(tokenPath)) {
+      const token = JSON.parse(readFileSync(tokenPath, 'utf8'));
+      return { connected: true, token };
+    }
+  } catch (err) { /* ignore */ }
+  return { connected: false, token: null };
+}
+
+// Load settings on startup (overrides .env)
+const savedSettings = loadSettings();
 
 const app = express();
 app.use(express.json());
+
+// ============ SETTINGS API (must be before static file serving) ============
+
+// GET /api/settings - Return current settings (masked)
+app.get('/api/settings', async (req, res) => {
+  try {
+    const geminiKey = process.env.GEMINI_API_KEY || '';
+    const sheetId = process.env.GOOGLE_SHEET_ID || '';
+    const serviceAccount = getServiceAccountInfo();
+    const gmailStatus = getGmailStatus();
+
+    let gmailEmail = '';
+    if (gmailStatus.connected) {
+      try {
+        gmailEmail = await getMyEmail();
+      } catch (err) {
+        // Token might be expired or invalid
+        gmailEmail = '';
+      }
+    }
+
+    // Load startRow from settings
+    let startRow = 2;
+    if (existsSync(SETTINGS_PATH)) {
+      try {
+        const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+        if (s.startRow) startRow = s.startRow;
+      } catch (e) { /* ignore */ }
+    }
+
+    res.json({
+      geminiApiKey: maskString(geminiKey),
+      googleSheetId: sheetId,
+      googleSheetUrl: sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : '',
+      gmailConnected: gmailStatus.connected && !!gmailEmail,
+      gmailEmail: gmailEmail,
+      serviceAccountEmail: serviceAccount.email,
+      serviceAccountConnected: serviceAccount.connected,
+      startRow
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/settings - Save settings
+app.post('/api/settings', async (req, res) => {
+  try {
+    const { geminiApiKey, googleSheetId } = req.body;
+    const toSave = {};
+
+    if (geminiApiKey !== undefined && !geminiApiKey.startsWith('*')) {
+      toSave.geminiApiKey = geminiApiKey;
+      process.env.GEMINI_API_KEY = geminiApiKey;
+    }
+
+    if (googleSheetId !== undefined) {
+      const id = extractSheetId(googleSheetId);
+      toSave.googleSheetId = id;
+      process.env.GOOGLE_SHEET_ID = id;
+    }
+
+    const saved = saveSettings(toSave);
+    res.json({ success: true, settings: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/settings/test-gemini - Test Gemini API key
+app.post('/api/settings/test-gemini', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    const key = apiKey && !apiKey.startsWith('*') ? apiKey : process.env.GEMINI_API_KEY;
+
+    if (!key) {
+      return res.json({ valid: false, error: 'No API key provided' });
+    }
+
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(key);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    await model.generateContent('Say "ok" in one word.');
+
+    res.json({ valid: true });
+  } catch (err) {
+    res.json({ valid: false, error: err.message });
+  }
+});
+
+// POST /api/settings/test-sheet - Test Google Sheet connection
+app.post('/api/settings/test-sheet', async (req, res) => {
+  try {
+    const { sheetId } = req.body;
+    const id = sheetId ? extractSheetId(sheetId) : process.env.GOOGLE_SHEET_ID;
+
+    if (!id) {
+      return res.json({ valid: false, error: 'No Sheet ID provided' });
+    }
+
+    const { google } = await import('googleapis');
+    const credPath = process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json';
+    const resolved = join(PROJECT_ROOT, credPath.replace(/^\.\//, ''));
+    const credentials = JSON.parse(readFileSync(resolved, 'utf8'));
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: id,
+      range: 'Sheet1!A1:A',
+    });
+
+    const rowCount = response.data.values ? response.data.values.length : 0;
+    res.json({ valid: true, rowCount });
+
+    // Auto-format the sheet in the background
+    try {
+      const formatRes = await fetch(`http://localhost:${PORT}/api/settings/format-sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetId: id })
+      });
+    } catch (e) { /* best effort */ }
+  } catch (err) {
+    res.json({ valid: false, error: err.message });
+  }
+});
+
+// POST /api/settings/gmail-auth - Trigger Gmail OAuth flow
+app.post('/api/settings/gmail-auth', async (req, res) => {
+  try {
+    res.json({ message: 'Gmail OAuth flow started. Check your browser for authorization.' });
+    // Trigger the OAuth flow (opens browser)
+    await getGmailClient();
+  } catch (err) {
+    // Don't send error since we already sent the initial response
+    console.error('[SETTINGS] Gmail auth error:', err.message);
+  }
+});
+
+// POST /api/settings/gmail-disconnect - Remove Gmail token
+app.post('/api/settings/gmail-disconnect', (req, res) => {
+  try {
+    const tokenPath = join(PROJECT_ROOT, 'gmail-token.json');
+    if (existsSync(tokenPath)) {
+      unlinkSync(tokenPath);
+    }
+    res.json({ success: true, message: 'Gmail disconnected. Token removed.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/gmail-send-as - List available send-as addresses
+app.get('/api/settings/gmail-send-as', async (req, res) => {
+  try {
+    // Check if Gmail is authorized before attempting (avoids triggering OAuth flow)
+    const tokenPath = join(PROJECT_ROOT, 'gmail-token.json');
+    if (!existsSync(tokenPath)) {
+      return res.json({ addresses: [], savedSender: '', error: 'Gmail not connected' });
+    }
+    const addresses = await getSendAsAddresses();
+    // Load saved sender preference
+    let savedSender = '';
+    if (existsSync(SETTINGS_PATH)) {
+      try {
+        const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+        savedSender = s.sendFromEmail || '';
+      } catch (e) { /* ignore */ }
+    }
+    res.json({ addresses, savedSender });
+  } catch (err) {
+    res.status(500).json({ error: err.message, addresses: [] });
+  }
+});
+
+// POST /api/settings/send-from - Save the selected send-from email
+app.post('/api/settings/send-from', (req, res) => {
+  try {
+    const { email } = req.body;
+    const saved = saveSettings({ sendFromEmail: email || '' });
+    res.json({ success: true, sendFromEmail: email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/settings/format-sheet - Auto-format Sheet1 with clean layout
+app.post('/api/settings/format-sheet', async (req, res) => {
+  try {
+    const sheetId = req.body.sheetId ? extractSheetId(req.body.sheetId) : process.env.GOOGLE_SHEET_ID;
+    if (!sheetId) return res.json({ success: false, error: 'No Sheet ID' });
+
+    const { google } = await import('googleapis');
+    const credPath = process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json';
+    const credentials = JSON.parse(readFileSync(join(PROJECT_ROOT, credPath.replace(/^\.\//, '')), 'utf8'));
+    const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Get Sheet1 sheetId
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const sheet1 = spreadsheet.data.sheets.find(s => s.properties.title === 'Sheet1');
+    if (!sheet1) return res.json({ success: false, error: 'Sheet1 not found' });
+    const sheet1Id = sheet1.properties.sheetId;
+
+    // Check if headers match expected format
+    const headerRes = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Sheet1!A1:F1' });
+    const headers = headerRes.data.values?.[0] || [];
+    const expectedHeaders = ['Status', 'First Name', 'Last Name', 'Company', 'Email', 'Website'];
+
+    // If headers don't match, set them
+    if (JSON.stringify(headers) !== JSON.stringify(expectedHeaders)) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: 'Sheet1!A1:F1',
+        valueInputOption: 'RAW',
+        requestBody: { values: [expectedHeaders] }
+      });
+    }
+
+    // Get row count for formatting range
+    const dataRes = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Sheet1!A:A' });
+    const rowCount = Math.max((dataRes.data.values || []).length, 2);
+
+    const borderStyle = { style: 'SOLID', width: 1, color: { red: 0.85, green: 0.85, blue: 0.85 } };
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [
+          { updateSheetProperties: { properties: { sheetId: sheet1Id, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } },
+          // Header style
+          { repeatCell: {
+            range: { sheetId: sheet1Id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 },
+            cell: { userEnteredFormat: {
+              backgroundColor: { red: 0.13, green: 0.13, blue: 0.16 },
+              textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 0.9, green: 0.93, blue: 0.95 }, fontFamily: 'Inter' },
+              horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE',
+              padding: { top: 10, bottom: 10, left: 12, right: 12 }
+            }},
+            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)'
+          }},
+          // Data cells
+          { repeatCell: {
+            range: { sheetId: sheet1Id, startRowIndex: 1, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: 6 },
+            cell: { userEnteredFormat: {
+              backgroundColor: { red: 1, green: 1, blue: 1 },
+              textFormat: { fontSize: 10, fontFamily: 'Inter' },
+              verticalAlignment: 'MIDDLE',
+              padding: { top: 8, bottom: 8, left: 12, right: 12 }
+            }},
+            fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)'
+          }},
+          // Alternating row colors
+          ...Array.from({ length: Math.ceil(rowCount / 2) }, (_, i) => ({
+            repeatCell: {
+              range: { sheetId: sheet1Id, startRowIndex: 2 + i * 2, endRowIndex: Math.min(3 + i * 2, rowCount), startColumnIndex: 0, endColumnIndex: 6 },
+              cell: { userEnteredFormat: { backgroundColor: { red: 0.976, green: 0.98, blue: 0.988 } } },
+              fields: 'userEnteredFormat.backgroundColor'
+            }
+          })),
+          // Borders
+          { updateBorders: { range: { sheetId: sheet1Id, startRowIndex: 0, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: 6 }, top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle, innerHorizontal: borderStyle, innerVertical: borderStyle } },
+          { updateBorders: { range: { sheetId: sheet1Id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 }, bottom: { style: 'SOLID', width: 2, color: { red: 0.3, green: 0.3, blue: 0.35 } } } },
+          // Column widths
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 240 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 260 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 280 }, fields: 'pixelSize' } },
+          { updateDimensionProperties: { range: { sheetId: sheet1Id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 44 }, fields: 'pixelSize' } },
+        ]
+      }
+    });
+
+    res.json({ success: true, rowCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Static file serving (AFTER settings API)
 app.use(express.static(join(__dirname, '../public')));
 
 // Store active job status
@@ -22,7 +402,8 @@ let currentJob = {
   total: 0,
   current: '',
   logs: [],
-  results: { successful: 0, skipped: 0, failed: 0 }
+  results: { successful: 0, skipped: 0, failed: 0 },
+  leads: [] // per-lead status: { rowNumber, company, email, website, status, detail }
 };
 
 // Store draft job status
@@ -342,40 +723,277 @@ async function recoverScheduledEmails() {
   }
 }
 
-// API: Get current status
+// API: Get all leads from Sheet1
+app.get('/api/leads', async (req, res) => {
+  try {
+    const leads = await readAllLeads(2);
+    res.json({ leads });
+  } catch (error) {
+    res.status(500).json({ error: error.message, leads: [] });
+  }
+});
+
+// API: Import leads from CSV/XML file upload
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.post('/api/import-leads', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const content = req.file.buffer.toString('utf-8');
+    const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
+    let leads = [];
+
+    if (ext === 'csv' || req.file.mimetype === 'text/csv') {
+      // Parse CSV — handle quoted fields
+      const lines = content.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return res.status(400).json({ error: 'CSV has no data rows' });
+
+      // Parse header to detect columns
+      const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+
+      // Column detection: use exact match first, then fuzzy fallback
+      // This handles Apollo.io exports where "Company Name for Emails" contains "email"
+      // and "Person Linkedin Url" contains "url"
+      function findCol(exactPatterns, fuzzyPatterns = []) {
+        // Try exact matches first (higher priority)
+        for (const pat of exactPatterns) {
+          const idx = header.findIndex(h => pat.test(h));
+          if (idx >= 0) return idx;
+        }
+        // Fuzzy fallback
+        for (const pat of fuzzyPatterns) {
+          const idx = header.findIndex(h => pat.test(h));
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      }
+
+      const colMap = {
+        firstName: findCol([/^first.?name$/], [/^first$/]),
+        lastName: findCol([/^last.?name$/], [/^last$/, /^surname$/]),
+        company: findCol([/^company$/, /^company.?name$/], [/^business$/, /^organization$/]),
+        // Email: must be exactly "email" or "e-mail" — NOT "company name for emails"
+        email: findCol([/^email$/, /^e-?mail$/, /^email.?address$/]),
+        // Website: must be exactly "website" — NOT "person linkedin url" or any social URL column
+        website: findCol([/^website$/, /^company.?website$/], [/^web$/, /^site$/, /^domain$/]),
+        name: findCol([/^name$/]),
+      };
+
+      // Debug: log detected column mapping
+      console.log(`  CSV headers (first 10): ${JSON.stringify(header.slice(0, 10))}`);
+      console.log(`  Column mapping: firstName=${colMap.firstName}, lastName=${colMap.lastName}, company=${colMap.company}, email=${colMap.email}, website=${colMap.website}`);
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i]);
+        if (!cols.length) continue;
+
+        let firstName = colMap.firstName >= 0 ? (cols[colMap.firstName] || '').trim() : '';
+        let lastName = colMap.lastName >= 0 ? (cols[colMap.lastName] || '').trim() : '';
+
+        // If no first/last but has "name", split it
+        if (!firstName && !lastName && colMap.name >= 0) {
+          const parts = (cols[colMap.name] || '').trim().split(/\s+/);
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ');
+        }
+
+        const company = colMap.company >= 0 ? (cols[colMap.company] || '').trim() : '';
+        let email = colMap.email >= 0 ? (cols[colMap.email] || '').trim() : '';
+        let website = colMap.website >= 0 ? (cols[colMap.website] || '').trim() : '';
+
+        // Validate: email must contain @, otherwise discard (it's probably a wrong column)
+        if (email && !email.includes('@')) email = '';
+
+        // Validate: website must not be a social media profile URL
+        if (website && /linkedin|facebook|twitter|instagram|tiktok|youtube/i.test(website)) website = '';
+
+        if (company || email) {
+          leads.push({ firstName, lastName, company, email, website });
+        }
+      }
+    } else if (ext === 'xml' || req.file.mimetype === 'text/xml' || req.file.mimetype === 'application/xml') {
+      // Simple XML parser — extract <lead> or <row> elements
+      const tagPattern = /<(?:lead|row|contact|record)[^>]*>([\s\S]*?)<\/(?:lead|row|contact|record)>/gi;
+      let match;
+      while ((match = tagPattern.exec(content)) !== null) {
+        const block = match[1];
+        const get = (tag) => {
+          const m = block.match(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, 'i'));
+          return m ? m[1].trim() : '';
+        };
+        const firstName = get('firstName') || get('first_name') || get('first');
+        const lastName = get('lastName') || get('last_name') || get('last');
+        const company = get('company') || get('business') || get('organization');
+        const email = get('email');
+        const website = get('website') || get('url') || get('domain');
+
+        if (company || email) {
+          leads.push({ firstName, lastName, company, email, website });
+        }
+      }
+    } else {
+      return res.status(400).json({ error: 'Unsupported file type. Use CSV or XML.' });
+    }
+
+    if (leads.length === 0) {
+      return res.status(400).json({ error: 'No valid leads found in file. Check column headers (company, email, website, firstName, lastName).' });
+    }
+
+    const count = await appendLeadsToSheet(leads);
+    res.json({ success: true, imported: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API: Redraft a single lead — regenerate email + replace Gmail draft
+app.post('/api/redraft', async (req, res) => {
+  const { rowNumber } = req.body;
+  if (!rowNumber) return res.status(400).json({ error: 'rowNumber required' });
+
+  try {
+    // Read the lead data from the sheet
+    const leads = await readAllLeads(rowNumber);
+    const lead = leads.find(l => l.rowNumber === parseInt(rowNumber));
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+    // Need a Trustpilot URL to rescrape, or at least the old email data
+    if (!lead.trustpilotUrl) {
+      return res.status(400).json({ error: 'No Trustpilot URL — cannot regenerate email' });
+    }
+
+    // Scrape fresh reviews
+    const reviews = await scrapeReviews(lead.trustpilotUrl, [1, 2], 20);
+    if (reviews.length === 0) {
+      return res.status(400).json({ error: 'No negative reviews found on rescrape' });
+    }
+
+    // Regenerate email
+    const ceoName = `${lead.firstName} ${lead.lastName}`.trim();
+    const emailResult = await generateEmail({
+      ceoName,
+      reviews,
+      company: lead.company
+    });
+
+    const variantA = emailResult?.variants?.A?.email || (typeof emailResult === 'string' ? emailResult : '');
+    const { subject, body } = parseEmailDraft(typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA);
+
+    if (!subject || !body) {
+      return res.status(400).json({ error: 'Generated email was empty' });
+    }
+
+    // Replace or create Gmail draft
+    let newDraftId = '';
+    let sendFrom = '';
+    try { sendFrom = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).sendFromEmail || ''; } catch(e) {}
+
+    if (lead.draftId) {
+      // Try to update existing draft
+      try {
+        const updated = await updateDraft(lead.draftId, lead.email, subject, body, sendFrom || undefined);
+        newDraftId = updated.id || lead.draftId;
+      } catch (err) {
+        // If update fails (draft deleted?), create new one
+        const draft = await createDraftWithSignature(lead.email, subject, body, sendFrom || undefined);
+        newDraftId = draft.id || '';
+      }
+    } else if (lead.email) {
+      const draft = await createDraftWithSignature(lead.email, subject, body, sendFrom || undefined);
+      newDraftId = draft.id || '';
+    }
+
+    // Update Sheet1
+    await writeDraftToLead(parseInt(rowNumber), {
+      trustpilotUrl: lead.trustpilotUrl,
+      emailDraft: typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA,
+      draftId: newDraftId
+    });
+    await markAsProcessed(parseInt(rowNumber), 'Drafted');
+
+    res.json({ success: true, draftId: newDraftId, subject });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Parse a single CSV line respecting quoted fields */
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { result.push(current); current = ''; }
+      else { current += ch; }
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// API: Get current status (includes per-lead status)
 app.get('/api/status', (req, res) => {
   res.json(currentJob);
 });
 
-// API: Start processing
+// API: Start processing — accepts { rows: [2,3,5] } or { startRow, endRow }
 app.post('/api/start', async (req, res) => {
-  const { startRow, endRow } = req.body;
+  const { startRow, endRow, rows } = req.body;
 
   if (currentJob.running) {
     return res.status(400).json({ error: 'Job already running' });
   }
 
-  const start = parseInt(startRow) || 18;
-  const end = parseInt(endRow) || start;
-  const limit = end - start + 1;
+  // If specific rows provided, use them; otherwise fall back to range
+  if (rows && Array.isArray(rows) && rows.length > 0) {
+    const rowNumbers = rows.map(r => parseInt(r)).filter(r => r > 0).sort((a, b) => a - b);
 
-  // Reset job state
-  currentJob = {
-    running: true,
-    progress: 0,
-    total: limit,
-    current: '',
-    logs: [],
-    results: { successful: 0, skipped: 0, failed: 0 }
-  };
+    currentJob = {
+      running: true,
+      progress: 0,
+      total: rowNumbers.length,
+      current: '',
+      logs: [],
+      results: { successful: 0, skipped: 0, failed: 0 },
+      leads: []
+    };
 
-  res.json({ message: 'Job started', startRow: start, endRow: end });
+    res.json({ message: 'Job started', rows: rowNumbers });
 
-  // Process in background
-  processCompanies(start, limit).catch(err => {
-    log(`Fatal error: ${err.message}`);
-    currentJob.running = false;
-  });
+    processSelectedRows(rowNumbers).catch(err => {
+      log(`Fatal error: ${err.message}`);
+      currentJob.running = false;
+    });
+  } else {
+    const start = parseInt(startRow) || 2;
+    const end = parseInt(endRow) || start;
+    const limit = end - start + 1;
+
+    currentJob = {
+      running: true,
+      progress: 0,
+      total: limit,
+      current: '',
+      logs: [],
+      results: { successful: 0, skipped: 0, failed: 0 },
+      leads: []
+    };
+
+    res.json({ message: 'Job started', startRow: start, endRow: end });
+
+    processCompanies(start, limit).catch(err => {
+      log(`Fatal error: ${err.message}`);
+      currentJob.running = false;
+    });
+  }
 });
 
 // API: Stop processing
@@ -593,8 +1211,10 @@ app.post('/api/schedule/test-draft', async (req, res) => {
     const subject = `Test Schedule - ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
     const body = `This is a test email for the scheduled sending feature.\n\nSent at: ${new Date().toLocaleString()}`;
 
-    // Create draft in Gmail
-    await createDraftWithSignature(email, subject, body);
+    // Create draft in Gmail (use saved sender if set)
+    let sendFrom = '';
+    try { sendFrom = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).sendFromEmail || ''; } catch(e) {}
+    await createDraftWithSignature(email, subject, body, sendFrom || undefined);
 
     // Also add to sheet as "Drafted" status
     await writeOutreach({
@@ -1327,7 +1947,26 @@ function parseEmailDraft(emailText) {
     return { subject: '', body: '' };
   }
 
-  const lines = emailText.trim().split('\n');
+  // Handle JSON A/B variant format: {"company":"...","ceoName":"...","variants":{"A":{"strategy":"...","email":"Subject: ...\n\n..."},...}}
+  let text = emailText.trim();
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.variants) {
+        // Use variant A by default
+        const variant = parsed.variants.A || parsed.variants.B || parsed.variants.C;
+        text = variant?.email || '';
+      } else if (parsed.email) {
+        text = parsed.email;
+      }
+    } catch (e) {
+      // Not valid JSON, treat as plain text
+    }
+  }
+
+  if (!text) return { subject: '', body: '' };
+
+  const lines = text.trim().split('\n');
   const firstLine = lines[0]?.trim() || '';
 
   if (firstLine.toLowerCase().startsWith('subject:')) {
@@ -1340,7 +1979,7 @@ function parseEmailDraft(emailText) {
 
   return {
     subject: firstLine.substring(0, 100),
-    body: emailText.trim()
+    body: text.trim()
   };
 }
 
@@ -1425,7 +2064,9 @@ async function processDrafts(mode) {
       draftLog(`Creating draft: ${email.company} → ${email.ceoEmail}`);
 
       // Create Gmail draft with signature and proper HTML formatting
-      await createDraftWithSignature(email.ceoEmail, subject, body);
+      let sendFrom = '';
+      try { sendFrom = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).sendFromEmail || ''; } catch(e) {}
+      await createDraftWithSignature(email.ceoEmail, subject, body, sendFrom || undefined);
 
       // Update status
       await updateStatus(email.company, 'Drafted');
@@ -1447,6 +2088,105 @@ async function processDrafts(mode) {
   draftLog(`Finished! Drafted: ${draftJob.results.drafted}, Skipped: ${draftJob.results.skipped}, Failed: ${draftJob.results.failed}`);
 }
 
+/**
+ * Update a lead's status in the currentJob.leads array
+ */
+function setLeadStatus(rowNumber, status, detail = '') {
+  const lead = currentJob.leads.find(l => l.rowNumber === rowNumber);
+  if (lead) {
+    lead.status = status;
+    lead.detail = detail;
+  }
+}
+
+/**
+ * Core processing logic for a single company
+ */
+async function processSingleCompany(company) {
+  setLeadStatus(company.rowNumber, 'processing', 'Searching Trustpilot...');
+  log(`  Searching Trustpilot...`);
+  const trustpilot = await findTrustpilotPage(company.website, company.company);
+
+  if (!trustpilot.found) {
+    log(`  No Trustpilot page found`);
+    await writeDraftToLead(company.rowNumber, { trustpilotUrl: '', emailDraft: '', draftId: '' });
+    await markAsProcessed(company.rowNumber, 'Skipped - No Trustpilot');
+    setLeadStatus(company.rowNumber, 'skipped', 'No Trustpilot page');
+    currentJob.results.skipped++;
+    return;
+  }
+
+  log(`  Found: ${trustpilot.url}${trustpilot.rating ? ` (Rating: ${trustpilot.rating})` : ''}`);
+  setLeadStatus(company.rowNumber, 'processing', 'Scraping reviews...');
+
+  log(`  Scraping reviews...`);
+  const reviews = await scrapeReviews(trustpilot.url, [1, 2], 20);
+  log(`  Found ${reviews.length} negative reviews`);
+
+  if (reviews.length === 0) {
+    await writeDraftToLead(company.rowNumber, { trustpilotUrl: trustpilot.url, emailDraft: '', draftId: '' });
+    await markAsProcessed(company.rowNumber, 'Skipped - No Reviews');
+    setLeadStatus(company.rowNumber, 'skipped', 'No negative reviews');
+    currentJob.results.skipped++;
+    return;
+  }
+
+  // Generate email
+  setLeadStatus(company.rowNumber, 'processing', 'Generating email...');
+  log(`  Generating email...`);
+  const emailResult = await generateEmail({
+    ceoName: company.ceoName,
+    reviews,
+    company: company.company
+  });
+
+  // Extract variant A for the draft
+  const variantA = emailResult?.variants?.A?.email || (typeof emailResult === 'string' ? emailResult : '');
+  const { subject, body } = parseEmailDraft(typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA);
+
+  if (!subject || !body || !company.email) {
+    log(`  No email address or empty email generated — skipping draft`);
+    await writeDraftToLead(company.rowNumber, {
+      trustpilotUrl: trustpilot.url,
+      emailDraft: typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA,
+      draftId: ''
+    });
+    await markAsProcessed(company.rowNumber, 'Generated - No Draft');
+    setLeadStatus(company.rowNumber, 'done', 'Email generated (no draft - missing email)');
+    currentJob.results.successful++;
+    return;
+  }
+
+  // Auto-create Gmail draft
+  setLeadStatus(company.rowNumber, 'processing', 'Creating Gmail draft...');
+  log(`  Creating Gmail draft...`);
+  let draftId = '';
+  try {
+    let sendFrom = '';
+    try { sendFrom = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).sendFromEmail || ''; } catch(e) {}
+    const draft = await createDraftWithSignature(company.email, subject, body, sendFrom || undefined);
+    draftId = draft.id || '';
+    log(`  Draft created: ${draftId}`);
+  } catch (err) {
+    log(`  Draft creation failed: ${err.message}`);
+  }
+
+  // Write everything to Sheet1
+  await writeDraftToLead(company.rowNumber, {
+    trustpilotUrl: trustpilot.url,
+    emailDraft: typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA,
+    draftId
+  });
+  await markAsProcessed(company.rowNumber, draftId ? 'Drafted' : 'Generated');
+
+  log(`  Done`);
+  setLeadStatus(company.rowNumber, 'done', draftId ? 'Drafted' : 'Email generated');
+  currentJob.results.successful++;
+}
+
+/**
+ * Process companies from a contiguous range (legacy support)
+ */
 async function processCompanies(startRow, limit) {
   log(`Starting processing: rows ${startRow} to ${startRow + limit - 1}`);
 
@@ -1461,94 +2201,91 @@ async function processCompanies(startRow, limit) {
   }
 
   currentJob.total = companies.length;
+  currentJob.leads = companies.map(c => ({
+    rowNumber: c.rowNumber,
+    company: c.company,
+    email: c.email,
+    website: c.website,
+    status: 'queued',
+    detail: ''
+  }));
 
   for (let i = 0; i < companies.length; i++) {
-    if (!currentJob.running) {
-      log('Job cancelled');
-      break;
-    }
+    if (!currentJob.running) { log('Job cancelled'); break; }
 
     const company = companies[i];
     currentJob.progress = i + 1;
     currentJob.current = company.company;
-
     log(`Processing ${i + 1}/${companies.length}: ${company.company}`);
 
     try {
-      // Find Trustpilot page
-      log(`  Searching Trustpilot...`);
-      const trustpilot = await findTrustpilotPage(company.website, company.company);
-
-      if (!trustpilot.found) {
-        log(`  No Trustpilot page found`);
-        await writeOutreach({
-          ceoName: company.ceoName,
-          ceoEmail: company.email,
-          company: company.company,
-          trustpilotUrl: '',
-          painPoints: 'No Trustpilot page found',
-          generatedEmail: 'N/A',
-          status: 'Skipped - No Trustpilot'
-        });
-        await markAsProcessed(company.rowNumber);
-        currentJob.results.skipped++;
-        continue;
-      }
-
-      log(`  Found: ${trustpilot.url}${trustpilot.rating ? ` (Rating: ${trustpilot.rating})` : ''}`);
-
-      // Scrape reviews
-      log(`  Scraping reviews...`);
-      const reviews = await scrapeReviews(trustpilot.url, [1, 2], 20);
-      log(`  Found ${reviews.length} negative reviews`);
-
-      if (reviews.length === 0) {
-        await writeOutreach({
-          ceoName: company.ceoName,
-          ceoEmail: company.email,
-          company: company.company,
-          trustpilotUrl: trustpilot.url,
-          painPoints: 'No negative reviews',
-          generatedEmail: 'N/A',
-          status: 'Skipped - No negative reviews'
-        });
-        await markAsProcessed(company.rowNumber);
-        currentJob.results.skipped++;
-        continue;
-      }
-
-      // Generate email using V10 AI-powered templates
-      log(`  Generating email (V10)...`);
-      const email = await generateEmail({
-        ceoName: company.ceoName,
-        reviews,
-        trustpilotRating: trustpilot.rating
-      });
-
-      // Build pain points summary from reviews for the sheet
-      const painPointsSummary = reviews.slice(0, 3).map(r => r.title || r.text.substring(0, 50)).join('; ');
-
-      // Write to sheet
-      await writeOutreach({
-        ceoName: company.ceoName,
-        ceoEmail: company.email,
-        company: company.company,
-        trustpilotUrl: trustpilot.url,
-        painPoints: painPointsSummary || 'Issues identified from reviews',
-        generatedEmail: email,
-        status: 'Ready for review'
-      });
-
-      await markAsProcessed(company.rowNumber);
-      log(`  ✓ Complete`);
-      currentJob.results.successful++;
-
+      await processSingleCompany(company);
     } catch (error) {
-      log(`  ✗ Error: ${error.message}`);
+      log(`  Error: ${error.message}`);
+      setLeadStatus(company.rowNumber, 'failed', error.message);
       currentJob.results.failed++;
     }
 
-    // Delay between companies
+    if (i < companies.length - 1 && currentJob.running) {
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+
+  currentJob.running = false;
+  currentJob.current = '';
+  log(`Finished! Success: ${currentJob.results.successful}, Skipped: ${currentJob.results.skipped}, Failed: ${currentJob.results.failed}`);
+}
+
+/**
+ * Process specific selected rows (from the UI leads table)
+ */
+async function processSelectedRows(rowNumbers) {
+  log(`Starting processing: ${rowNumbers.length} selected lead(s)`);
+
+  // Read each row individually
+  let companies = [];
+  for (const row of rowNumbers) {
+    try {
+      const rows = await readCompanies(row, 1);
+      if (rows.length > 0) companies.push(rows[0]);
+    } catch (e) {
+      log(`Error reading row ${row}: ${e.message}`);
+    }
+  }
+
+  if (companies.length === 0) {
+    log('No valid companies found in selected rows');
+    currentJob.running = false;
+    return;
+  }
+
+  log(`Found ${companies.length} companies`);
+  currentJob.total = companies.length;
+  currentJob.leads = companies.map(c => ({
+    rowNumber: c.rowNumber,
+    company: c.company,
+    email: c.email,
+    website: c.website,
+    status: 'queued',
+    detail: ''
+  }));
+
+  for (let i = 0; i < companies.length; i++) {
+    if (!currentJob.running) { log('Job cancelled'); break; }
+
+    const company = companies[i];
+    currentJob.progress = i + 1;
+    currentJob.current = company.company;
+    log(`Processing ${i + 1}/${companies.length}: ${company.company}`);
+
+    try {
+      await processSingleCompany(company);
+    } catch (error) {
+      log(`  Error: ${error.message}`);
+      setLeadStatus(company.rowNumber, 'failed', error.message);
+      currentJob.results.failed++;
+    }
+
     if (i < companies.length - 1 && currentJob.running) {
       await new Promise(r => setTimeout(r, 3000));
     }

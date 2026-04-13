@@ -79,37 +79,48 @@ async function _findTrustpilotPage(browser, website, companyName) {
     const page = await browser.newPage();
     await page.setUserAgent(USER_AGENT);
 
-    // Extract domain from website
+    // Extract domain from website — skip social media URLs (LinkedIn, Facebook, Twitter, etc.)
     let domain = '';
+    const socialDomains = ['linkedin.com', 'facebook.com', 'twitter.com', 'instagram.com', 'tiktok.com', 'youtube.com'];
+    let isSocialUrl = false;
     try {
       const url = new URL(website.startsWith('http') ? website : `https://${website}`);
       domain = url.hostname.replace('www.', '');
+      isSocialUrl = socialDomains.some(s => domain.includes(s));
     } catch {
       domain = website.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+      isSocialUrl = socialDomains.some(s => domain.includes(s));
     }
 
-    // Try direct Trustpilot URL with domain
-    const directUrl = `https://www.trustpilot.com/review/${domain}`;
-    console.log(`  Trying: ${directUrl}`);
+    if (isSocialUrl) {
+      console.log(`  Skipping social media URL (${domain}), searching by company name instead...`);
+      domain = '';
+    }
 
-    await page.goto(directUrl, { waitUntil: 'networkidle2', timeout: 30000 });  // Increased from 15s to 30s
+    // Try direct Trustpilot URL with domain (skip if no valid domain)
+    if (domain) {
+      const directUrl = `https://www.trustpilot.com/review/${domain}`;
+      console.log(`  Trying: ${directUrl}`);
 
-    // Check if page exists (not a 404 or search page)
-    const pageTitle = await page.title();
-    const currentUrl = page.url();
+      await page.goto(directUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-    if (!currentUrl.includes('/search') && !pageTitle.includes('Page not found')) {
-      // Verify it's a valid review page by checking for reviews section
-      const hasReviews = await page.$('[data-review-id], [class*="review"]');
-      if (hasReviews) {
-        // Scrape the overall rating
-        const rating = await scrapeOverallRating(page);
-        return { found: true, url: directUrl, rating };
+      // Check if page exists (not a 404 or search page)
+      const pageTitle = await page.title();
+      const currentUrl = page.url();
+
+      if (!currentUrl.includes('/search') && !pageTitle.includes('Page not found')) {
+        // Verify it's a valid review page by checking for reviews section
+        const hasReviews = await page.$('[data-review-id], [class*="review"]');
+        if (hasReviews) {
+          // Scrape the overall rating
+          const rating = await scrapeOverallRating(page);
+          return { found: true, url: directUrl, rating };
+        }
       }
     }
 
-    // Try search as fallback
-    console.log(`  Direct URL failed, searching for "${companyName}"...`);
+    // Try search by company name as fallback
+    console.log(`  Searching for "${companyName}" on Trustpilot...`);
     const searchUrl = `https://www.trustpilot.com/search?query=${encodeURIComponent(companyName)}`;
     await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });  // Increased from 15s to 30s
 
