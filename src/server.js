@@ -127,12 +127,21 @@ app.get('/api/settings', async (req, res) => {
       }
     }
 
-    // Load startRow from settings
+    // Load startRow and schedulingConfig from settings
     let startRow = 2;
+    let schedulingConfig = {
+      mode: 'drafts-only',
+      startTime: '09:00',
+      endTime: '17:00',
+      timezone: 'Europe/Madrid',
+      minInterval: 15,
+      maxInterval: 25
+    };
     if (existsSync(SETTINGS_PATH)) {
       try {
         const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
         if (s.startRow) startRow = s.startRow;
+        if (s.schedulingConfig) schedulingConfig = { ...schedulingConfig, ...s.schedulingConfig };
       } catch (e) { /* ignore */ }
     }
 
@@ -144,7 +153,8 @@ app.get('/api/settings', async (req, res) => {
       gmailEmail: gmailEmail,
       serviceAccountEmail: serviceAccount.email,
       serviceAccountConnected: serviceAccount.connected,
-      startRow
+      startRow,
+      schedulingConfig
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -154,7 +164,7 @@ app.get('/api/settings', async (req, res) => {
 // POST /api/settings - Save settings
 app.post('/api/settings', async (req, res) => {
   try {
-    const { geminiApiKey, googleSheetId } = req.body;
+    const { geminiApiKey, googleSheetId, schedulingConfig } = req.body;
     const toSave = {};
 
     if (geminiApiKey !== undefined && !geminiApiKey.startsWith('*')) {
@@ -166,6 +176,19 @@ app.post('/api/settings', async (req, res) => {
       const id = extractSheetId(googleSheetId);
       toSave.googleSheetId = id;
       process.env.GOOGLE_SHEET_ID = id;
+    }
+
+    if (schedulingConfig !== undefined) {
+      toSave.schedulingConfig = schedulingConfig;
+      // Apply to live scheduleJob.settings immediately
+      scheduleJob.settings = {
+        ...scheduleJob.settings,
+        timezone: schedulingConfig.timezone || scheduleJob.settings.timezone,
+        startTime: schedulingConfig.startTime || scheduleJob.settings.startTime,
+        endTime: schedulingConfig.endTime || scheduleJob.settings.endTime,
+        minInterval: schedulingConfig.minInterval ?? scheduleJob.settings.minInterval,
+        maxInterval: schedulingConfig.maxInterval ?? scheduleJob.settings.maxInterval
+      };
     }
 
     const saved = saveSettings(toSave);
@@ -427,13 +450,27 @@ let scheduleJob = {
   results: { sent: 0, failed: 0, pending: 0 },
   scheduledEmails: [],  // { company, ceoEmail, subject, scheduledTime, status, timeoutId }
   settings: {
-    timezone: 'America/New_York',
+    timezone: 'Europe/Madrid',
     startTime: '09:00',
     endTime: '17:00',
     minInterval: 15,
     maxInterval: 25
   }
 };
+
+// Apply persisted schedulingConfig to scheduleJob.settings on startup
+if (savedSettings.schedulingConfig) {
+  const sc = savedSettings.schedulingConfig;
+  scheduleJob.settings = {
+    ...scheduleJob.settings,
+    ...(sc.timezone && { timezone: sc.timezone }),
+    ...(sc.startTime && { startTime: sc.startTime }),
+    ...(sc.endTime && { endTime: sc.endTime }),
+    ...(sc.minInterval != null && { minInterval: Number(sc.minInterval) }),
+    ...(sc.maxInterval != null && { maxInterval: Number(sc.maxInterval) })
+  };
+  console.log('[SETTINGS] Applied schedulingConfig from settings.json:', scheduleJob.settings);
+}
 
 // STRICT DUPLICATE PREVENTION: Track all emails ever sent in this session
 // Key: email address (lowercase), Value: { company, sentAt }
@@ -1036,9 +1073,9 @@ app.get('/api/status', (req, res) => {
   res.json(currentJob);
 });
 
-// API: Start processing — accepts { rows: [2,3,5] } or { startRow, endRow }
+// API: Start processing — accepts { rows: [2,3,5] } or { startRow, endRow }, optional deliveryMode
 app.post('/api/start', async (req, res) => {
-  const { startRow, endRow, rows } = req.body;
+  const { startRow, endRow, rows, deliveryMode } = req.body;
 
   if (currentJob.running) {
     return res.status(400).json({ error: 'Job already running' });
@@ -1060,7 +1097,7 @@ app.post('/api/start', async (req, res) => {
 
     res.json({ message: 'Job started', rows: rowNumbers });
 
-    processSelectedRows(rowNumbers).catch(err => {
+    processSelectedRows(rowNumbers, deliveryMode).catch(err => {
       log(`Fatal error: ${err.message}`);
       currentJob.running = false;
     });
@@ -1081,7 +1118,7 @@ app.post('/api/start', async (req, res) => {
 
     res.json({ message: 'Job started', startRow: start, endRow: end });
 
-    processCompanies(start, limit).catch(err => {
+    processCompanies(start, limit, deliveryMode).catch(err => {
       log(`Fatal error: ${err.message}`);
       currentJob.running = false;
     });
@@ -2182,6 +2219,43 @@ async function processDrafts(mode) {
 }
 
 /**
+ * Calculate the next available send slot for auto-scheduling.
+ * Looks at existing pending emails and appends a random interval after the last one.
+ * If no pending emails exist, schedules for the configured start time (or now+2min if past start).
+ */
+function calculateNextSlot(settings) {
+  const { startTime, endTime, timezone, minInterval, maxInterval } = settings;
+  const now = new Date();
+  const today = now.toLocaleDateString('en-CA', { timeZone: timezone });
+
+  // Find the latest pending scheduled time
+  const pending = scheduleJob.scheduledEmails.filter(e => e.status === 'pending');
+  let baseTime;
+
+  if (pending.length === 0) {
+    const startDate = parseDateInTimezone(`${today} ${startTime}`, timezone);
+    const minTime = new Date(now.getTime() + 2 * 60 * 1000); // at least 2 min from now
+    baseTime = startDate < minTime ? minTime : startDate;
+  } else {
+    const lastMs = Math.max(...pending.map(e => new Date(e.scheduledTime).getTime()));
+    const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
+    baseTime = new Date(lastMs + interval * 60 * 1000);
+  }
+
+  // If baseTime is past end time, roll to next day's start
+  const dayStr = baseTime.toLocaleDateString('en-CA', { timeZone: timezone });
+  const endDate = parseDateInTimezone(`${dayStr} ${endTime}`, timezone);
+  if (baseTime > endDate) {
+    const nextDay = new Date(baseTime);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toLocaleDateString('en-CA', { timeZone: timezone });
+    return parseDateInTimezone(`${nextDayStr} ${startTime}`, timezone);
+  }
+
+  return baseTime;
+}
+
+/**
  * Update a lead's status in the currentJob.leads array
  */
 function setLeadStatus(rowNumber, status, detail = '') {
@@ -2270,17 +2344,65 @@ async function processSingleCompany(company) {
     emailDraft: typeof emailResult === 'object' ? JSON.stringify(emailResult) : variantA,
     draftId
   });
-  await markAsProcessed(company.rowNumber, draftId ? 'Drafted' : 'Generated');
+
+  // Auto-schedule if mode is set and draft was created successfully
+  let finalStatus = draftId ? 'Drafted' : 'Generated';
+  if (draftId && company.email) {
+    let deliveryMode = company.deliveryMode;
+    if (!deliveryMode) {
+      try {
+        const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+        deliveryMode = s.schedulingConfig?.mode || 'drafts-only';
+      } catch (e) { deliveryMode = 'drafts-only'; }
+    }
+
+    if (deliveryMode === 'auto-schedule') {
+      try {
+        setLeadStatus(company.rowNumber, 'processing', 'Scheduling send...');
+        const slotTime = calculateNextSlot(scheduleJob.settings);
+        const scheduledEmail = {
+          company: company.company,
+          ceoEmail: company.email,
+          subject,
+          scheduledTime: slotTime.toISOString(),
+          status: 'pending'
+        };
+        const delay = slotTime.getTime() - Date.now();
+        if (delay > 0) {
+          scheduledEmail.timeoutId = setTimeout(() => {
+            scheduleLog(`[TIMEOUT EXECUTING] ${scheduledEmail.company}`);
+            sendScheduledEmail(scheduledEmail);
+          }, delay);
+          scheduleJob.scheduledEmails.push(scheduledEmail);
+          scheduleJob.running = true;
+          scheduleJob.results.pending++;
+          await updateStatus(company.company, 'Scheduled');
+          await updateScheduledTime(company.company, slotTime, scheduleJob.settings.timezone);
+          finalStatus = 'Scheduled';
+          log(`  Auto-scheduled: ${formatTimeForTimezone(slotTime, scheduleJob.settings.timezone)}`);
+        } else {
+          await markAsProcessed(company.rowNumber, 'Drafted');
+        }
+      } catch (err) {
+        log(`  Auto-schedule failed: ${err.message}`);
+        await markAsProcessed(company.rowNumber, 'Drafted');
+      }
+    } else {
+      await markAsProcessed(company.rowNumber, finalStatus);
+    }
+  } else {
+    await markAsProcessed(company.rowNumber, finalStatus);
+  }
 
   log(`  Done`);
-  setLeadStatus(company.rowNumber, 'done', draftId ? 'Drafted' : 'Email generated');
+  setLeadStatus(company.rowNumber, 'done', finalStatus);
   currentJob.results.successful++;
 }
 
 /**
  * Process companies from a contiguous range (legacy support)
  */
-async function processCompanies(startRow, limit) {
+async function processCompanies(startRow, limit, deliveryMode) {
   log(`Starting processing: rows ${startRow} to ${startRow + limit - 1}`);
 
   let companies;
@@ -2312,7 +2434,7 @@ async function processCompanies(startRow, limit) {
     log(`Processing ${i + 1}/${companies.length}: ${company.company}`);
 
     try {
-      await processSingleCompany(company);
+      await processSingleCompany({ ...company, deliveryMode });
     } catch (error) {
       log(`  Error: ${error.message}`);
       setLeadStatus(company.rowNumber, 'failed', error.message);
@@ -2332,7 +2454,7 @@ async function processCompanies(startRow, limit) {
 /**
  * Process specific selected rows (from the UI leads table)
  */
-async function processSelectedRows(rowNumbers) {
+async function processSelectedRows(rowNumbers, deliveryMode) {
   log(`Starting processing: ${rowNumbers.length} selected lead(s)`);
 
   // Read each row individually
@@ -2372,7 +2494,7 @@ async function processSelectedRows(rowNumbers) {
     log(`Processing ${i + 1}/${companies.length}: ${company.company}`);
 
     try {
-      await processSingleCompany(company);
+      await processSingleCompany({ ...company, deliveryMode });
     } catch (error) {
       log(`  Error: ${error.message}`);
       setLeadStatus(company.rowNumber, 'failed', error.message);

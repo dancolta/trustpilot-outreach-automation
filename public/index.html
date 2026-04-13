@@ -906,16 +906,14 @@
       transform: rotate(-90deg);
     }
     .panel-body-wrap {
-      display: grid;
-      grid-template-rows: 1fr;
-      transition: grid-template-rows 0.25s ease;
+      overflow: hidden;
+      max-height: 800px;
+      transition: max-height 0.25s ease;
     }
     .panel-body-wrap.collapsed {
-      grid-template-rows: 0fr;
+      max-height: 0;
     }
     .panel-body-wrap > .panel-body {
-      overflow: hidden;
-      min-height: 0;
     }
     .panel-body-wrap.collapsed > .panel-body {
       padding-top: 0;
@@ -1372,6 +1370,91 @@
           </div>
         </div>
 
+        <!-- Delivery Settings -->
+        <div class="panel">
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Delivery Settings</span>
+              <span class="badge badge-idle" id="deliverySettingsStatus">Saved</span>
+            </div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body">
+              <div class="field" style="margin-bottom: 16px;">
+                <label class="field-label">After processing</label>
+                <div style="display: flex; gap: 8px; margin-top: 6px;">
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-xs); flex: 1; transition: border-color 0.15s;" id="modeRadioDrafts">
+                    <input type="radio" name="deliveryMode" value="drafts-only" id="modeDraftsOnly" style="accent-color: var(--chart-2); cursor: pointer; width: auto;">
+                    <div>
+                      <div style="font-size: 13px; font-weight: 500; color: var(--foreground);">Create drafts only</div>
+                      <div style="font-size: 11px; color: var(--muted-foreground); margin-top: 2px;">Emails land in Gmail drafts — review before sending</div>
+                    </div>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-xs); flex: 1; transition: border-color 0.15s;" id="modeRadioSchedule">
+                    <input type="radio" name="deliveryMode" value="auto-schedule" id="modeAutoSchedule" style="accent-color: var(--chart-2); cursor: pointer; width: auto;">
+                    <div>
+                      <div style="font-size: 13px; font-weight: 500; color: var(--foreground);">Auto-schedule sends</div>
+                      <div style="font-size: 11px; color: var(--muted-foreground); margin-top: 2px;">Queues emails to send within business hours</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              <div id="scheduleSettingsFields">
+                <div class="field-row">
+                  <div class="field">
+                    <label class="field-label">Timezone</label>
+                    <div class="custom-select" id="deliveryTimezoneSelect" data-value="Europe/Madrid">
+                      <div class="custom-select-trigger" tabindex="0">
+                        <span class="cs-label">Madrid (CET/CEST)</span>
+                        <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </div>
+                      <div class="custom-select-dropdown">
+                        <div class="cs-group-label">Americas</div>
+                        <div class="cs-option" data-value="America/New_York">New York (ET)</div>
+                        <div class="cs-option" data-value="America/Chicago">Chicago (CT)</div>
+                        <div class="cs-option" data-value="America/Los_Angeles">Los Angeles (PT)</div>
+                        <div class="cs-group-label">Europe</div>
+                        <div class="cs-option" data-value="Europe/London">London (GMT/BST)</div>
+                        <div class="cs-option" data-value="Europe/Paris">Paris (CET/CEST)</div>
+                        <div class="cs-option selected" data-value="Europe/Madrid">Madrid (CET/CEST)</div>
+                        <div class="cs-option" data-value="Europe/Berlin">Berlin (CET/CEST)</div>
+                        <div class="cs-option" data-value="Europe/Bucharest">Bucharest (EET/EEST)</div>
+                        <div class="cs-group-label">Asia</div>
+                        <div class="cs-option" data-value="Asia/Dubai">Dubai (GST)</div>
+                        <div class="cs-option" data-value="Asia/Kolkata">Mumbai / Delhi (IST)</div>
+                        <div class="cs-option" data-value="Asia/Singapore">Singapore (SGT)</div>
+                        <div class="cs-option" data-value="Asia/Tokyo">Tokyo (JST)</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field-label">Business Hours</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="time" id="deliveryStartTime" value="09:00" style="flex: 1;">
+                      <span style="color: var(--muted-foreground); font-size: 12px; flex-shrink: 0;">to</span>
+                      <input type="time" id="deliveryEndTime" value="17:00" style="flex: 1;">
+                    </div>
+                  </div>
+                </div>
+                <div class="field-row" style="margin-top: 12px;">
+                  <div class="field">
+                    <label class="field-label">Min interval (min)</label>
+                    <input type="number" id="deliveryMinInterval" value="15" min="1" max="120">
+                  </div>
+                  <div class="field">
+                    <label class="field-label">Max interval (min)</label>
+                    <input type="number" id="deliveryMaxInterval" value="25" min="1" max="120">
+                  </div>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary btn-sm" onclick="saveDeliverySettings()">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="panel">
           <div class="panel-header">
             <span class="panel-title">Import Leads</span>
@@ -1503,15 +1586,23 @@
                 <button class="btn-toggle" id="selAll" onclick="selectAllLeads()">All</button>
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <!-- Inline delivery mode toggle — inherits from Setup defaults -->
+              <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-xs);">
+                <span style="font-size: 11px; color: var(--muted-foreground);">After run:</span>
+                <div class="btn-toggle-group" style="border: none; background: none; padding: 0;">
+                  <button class="btn-toggle active" id="runModeDrafts" onclick="setRunDeliveryMode('drafts-only', this)" style="font-size: 11px; padding: 2px 8px;">Drafts only</button>
+                  <button class="btn-toggle" id="runModeSchedule" onclick="setRunDeliveryMode('auto-schedule', this)" style="font-size: 11px; padding: 2px 8px;">Auto-schedule</button>
+                </div>
+              </div>
+              <span style="width: 1px; height: 16px; background: rgba(255,255,255,0.08);"></span>
               <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Pull latest leads from Google Sheets">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 Sync
               </button>
-              <span style="width: 1px; height: 16px; background: rgba(255,255,255,0.08);"></span>
               <button class="btn btn-primary btn-sm" id="startBtn" onclick="startProcessing()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Process Selected
+                Run Selected
               </button>
               <button class="btn btn-ghost btn-sm" id="stopBtn" onclick="stopProcessing()" disabled>Stop</button>
             </div>
@@ -1544,8 +1635,8 @@
       <!-- ======== SCHEDULE PAGE ======== -->
       <section class="page-section" id="page-schedule">
         <div class="page-header">
-          <h1 class="page-title">Schedule</h1>
-          <p class="page-desc">Schedule email sending with randomized intervals</p>
+          <h1 class="page-title">Send Queue</h1>
+          <p class="page-desc">Emails scheduled via auto-schedule mode</p>
         </div>
 
         <!-- Recovery Banner -->
@@ -1557,153 +1648,56 @@
           <button class="banner-close" onclick="dismissRecoveryBanner()">&times;</button>
         </div>
 
-        <!-- Test Draft -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Test Draft</span></div>
-          <div class="panel-body">
-            <div class="field-row">
-              <div class="field" style="flex: 2;">
-                <label class="field-label" for="testEmail">Recipient Email</label>
-                <input type="text" id="testEmail" placeholder="you@email.com">
-              </div>
-              <span class="tooltip-wrap" style="align-self: flex-end;">
-                <button class="btn btn-ghost" onclick="createTestDraft()">Create Test Draft</button>
-                <span class="tooltip">Creates a Gmail draft using the first ready lead — check your drafts to preview before sending</span>
-              </span>
+        <!-- Send Queue Stats -->
+        <div class="kpi-row" style="margin-bottom: 16px;">
+          <div class="kpi-card kpi-success">
+            <div class="kpi-top">
+              <div class="kpi-label">Sent</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <div id="testDraftResult" class="hidden" style="margin-top: 10px; font-size: 13px;"></div>
+            <div class="kpi-value accent" id="scheduleSentCount">0</div>
           </div>
-        </div>
-
-        <!-- Schedule Config -->
-        <div class="panel">
-          <div class="panel-header"><span class="panel-title">Schedule Configuration</span></div>
-          <div class="panel-body">
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">Date</label>
-                <div class="custom-select" id="scheduleDateSelect" data-value="">
-                  <div class="custom-select-trigger" tabindex="0">
-                    <span class="cs-label">Loading...</span>
-                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <div class="custom-select-dropdown"></div>
-                </div>
-              </div>
-              <div class="field">
-                <label class="field-label">Timezone</label>
-                <div class="custom-select" id="timezoneSelect" data-value="America/New_York">
-                  <div class="custom-select-trigger" tabindex="0">
-                    <span class="cs-label">New York (ET)</span>
-                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <div class="custom-select-dropdown">
-                    <div class="cs-group-label">Americas</div>
-                    <div class="cs-option selected" data-value="America/New_York">New York (ET)</div>
-                    <div class="cs-option" data-value="America/Chicago">Chicago (CT)</div>
-                    <div class="cs-option" data-value="America/Denver">Denver (MT)</div>
-                    <div class="cs-option" data-value="America/Los_Angeles">Los Angeles (PT)</div>
-                    <div class="cs-option" data-value="America/Toronto">Toronto (ET)</div>
-                    <div class="cs-option" data-value="America/Mexico_City">Mexico City (CST)</div>
-                    <div class="cs-option" data-value="America/Bogota">Bogota (COT)</div>
-                    <div class="cs-option" data-value="America/Sao_Paulo">Sao Paulo (BRT)</div>
-                    <div class="cs-option" data-value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</div>
-                    <div class="cs-group-label">Europe</div>
-                    <div class="cs-option" data-value="Europe/London">London (GMT/BST)</div>
-                    <div class="cs-option" data-value="Europe/Paris">Paris (CET/CEST)</div>
-                    <div class="cs-option" data-value="Europe/Berlin">Berlin (CET/CEST)</div>
-                    <div class="cs-option" data-value="Europe/Madrid">Madrid (CET/CEST)</div>
-                    <div class="cs-option" data-value="Europe/Rome">Rome (CET/CEST)</div>
-                    <div class="cs-option" data-value="Europe/Amsterdam">Amsterdam (CET/CEST)</div>
-                    <div class="cs-option" data-value="Europe/Bucharest">Bucharest (EET/EEST)</div>
-                    <div class="cs-option" data-value="Europe/Moscow">Moscow (MSK)</div>
-                    <div class="cs-option" data-value="Europe/Istanbul">Istanbul (TRT)</div>
-                    <div class="cs-group-label">Africa</div>
-                    <div class="cs-option" data-value="Africa/Lagos">Lagos (WAT)</div>
-                    <div class="cs-option" data-value="Africa/Cairo">Cairo (EET)</div>
-                    <div class="cs-option" data-value="Africa/Johannesburg">Johannesburg (SAST)</div>
-                    <div class="cs-option" data-value="Africa/Nairobi">Nairobi (EAT)</div>
-                    <div class="cs-option" data-value="Africa/Casablanca">Casablanca (WET)</div>
-                    <div class="cs-group-label">Asia</div>
-                    <div class="cs-option" data-value="Asia/Dubai">Dubai (GST)</div>
-                    <div class="cs-option" data-value="Asia/Kolkata">Mumbai / Delhi (IST)</div>
-                    <div class="cs-option" data-value="Asia/Singapore">Singapore (SGT)</div>
-                    <div class="cs-option" data-value="Asia/Shanghai">Shanghai / Beijing (CST)</div>
-                    <div class="cs-option" data-value="Asia/Hong_Kong">Hong Kong (HKT)</div>
-                    <div class="cs-option" data-value="Asia/Tokyo">Tokyo (JST)</div>
-                    <div class="cs-option" data-value="Asia/Seoul">Seoul (KST)</div>
-                    <div class="cs-option" data-value="Asia/Bangkok">Bangkok (ICT)</div>
-                    <div class="cs-option" data-value="Asia/Jakarta">Jakarta (WIB)</div>
-                    <div class="cs-group-label">Oceania</div>
-                    <div class="cs-option" data-value="Australia/Sydney">Sydney (AEST/AEDT)</div>
-                    <div class="cs-option" data-value="Australia/Melbourne">Melbourne (AEST/AEDT)</div>
-                    <div class="cs-option" data-value="Australia/Perth">Perth (AWST)</div>
-                    <div class="cs-option" data-value="Pacific/Auckland">Auckland (NZST/NZDT)</div>
-                  </div>
-                </div>
-              </div>
+          <div class="kpi-card kpi-info">
+            <div class="kpi-top">
+              <div class="kpi-label">Pending</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            <div class="field-row" style="margin-top: 12px;">
-              <div class="field">
-                <label class="field-label">Start Time</label>
-                <div class="custom-select" id="startTimeSelect" data-value="09:00">
-                  <div class="custom-select-trigger" tabindex="0">
-                    <span class="cs-label">9:00 AM</span>
-                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <div class="custom-select-dropdown"></div>
-                </div>
-              </div>
-              <div class="field">
-                <label class="field-label">End Time</label>
-                <div class="custom-select" id="endTimeSelect" data-value="17:00">
-                  <div class="custom-select-trigger" tabindex="0">
-                    <span class="cs-label">5:00 PM</span>
-                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <div class="custom-select-dropdown"></div>
-                </div>
-              </div>
+            <div class="kpi-value" id="schedulePendingCount">0</div>
+          </div>
+          <div class="kpi-card kpi-error">
+            <div class="kpi-top">
+              <div class="kpi-label">Failed</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             </div>
-            <div class="field-row" style="margin-top: 12px;">
-              <div class="field">
-                <label class="field-label" for="minInterval">Min Interval (min)</label>
-                <input type="number" id="minInterval" value="15" min="1" max="120">
-              </div>
-              <div class="field">
-                <label class="field-label" for="maxInterval">Max Interval (min)</label>
-                <input type="number" id="maxInterval" value="25" min="1" max="120">
-              </div>
+            <div class="kpi-value error" id="scheduleFailedCount">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-top">
+              <div class="kpi-label">Controls</div>
             </div>
-            <div class="field" style="margin-top: 12px;">
-              <label class="field-label" for="filterEmail">Filter by Email (optional)</label>
-              <input type="text" id="filterEmail" placeholder="e.g. you@gmail.com">
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-ghost" id="previewScheduleBtn" onclick="previewSchedule()">Preview Schedule</button>
-              <button class="btn btn-primary" id="startScheduleBtn" onclick="startSchedule()" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Start Scheduled Sending
-              </button>
-              <button class="btn btn-ghost" id="stopScheduleBtn" onclick="stopSchedule()" disabled>Stop</button>
-            </div>
+            <button class="btn btn-danger btn-sm" id="stopScheduleBtn" onclick="stopSchedule()" style="margin-top: 4px; width: 100%;" disabled>Stop All</button>
           </div>
         </div>
 
         <!-- Schedule Warning -->
         <div id="scheduleWarning" class="banner banner-warn hidden"></div>
 
-        <!-- Schedule Preview Table -->
-        <div class="panel hidden" id="schedulePreviewSection">
-          <div class="panel-header"><span class="panel-title">Schedule Preview</span></div>
+        <!-- Send Queue Table -->
+        <div class="panel" id="schedulePreviewSection">
+          <div class="panel-header">
+            <span class="panel-title">Scheduled Emails</span>
+            <span class="badge badge-idle" id="scheduleStatusBadge">Idle</span>
+          </div>
           <div class="panel-body" style="padding: 0; overflow-x: auto;">
-            <table class="tbl" id="schedulePreviewTable">
+            <div id="scheduleQueueEmpty" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
+              No emails scheduled. Use <strong>Auto-schedule</strong> mode in Processing to queue emails automatically.
+            </div>
+            <table class="tbl hidden" id="schedulePreviewTable">
               <thead>
                 <tr>
                   <th>Company</th>
                   <th>Recipient</th>
                   <th>Scheduled Time</th>
-                  <th>Your Local Time</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -1713,40 +1707,18 @@
           </div>
         </div>
 
-        <!-- Schedule Progress -->
-        <div class="panel hidden" id="scheduleProgressSection">
-          <div class="panel-body">
-            <div class="progress-track">
-              <div class="progress-fill" id="scheduleProgressBar"></div>
-            </div>
-            <div class="progress-meta">
-              <span class="progress-meta-label" id="scheduleProgressLabel">0 / 0</span>
-              <span class="progress-meta-value" id="scheduleStatus">Preparing...</span>
-            </div>
-            <div class="stats-row" style="margin-top: 14px;">
-              <div class="stat-cell">
-                <div class="stat-num" id="scheduleSentCount">0</div>
-                <div class="stat-txt">Sent</div>
-              </div>
-              <div class="stat-cell">
-                <div class="stat-num" id="schedulePendingCount">0</div>
-                <div class="stat-txt">Pending</div>
-              </div>
-              <div class="stat-cell">
-                <div class="stat-num" id="scheduleFailedCount">0</div>
-                <div class="stat-txt">Failed</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="panel">
-          <div class="panel-header"><span class="panel-title">Schedule Log</span></div>
-          <div class="panel-body" style="padding: 12px;">
-            <div class="log" id="scheduleLogContainer">
-              <div class="log-line">
-                <span class="log-ts">--:--:--</span>
-                <span class="log-msg">Schedule system ready</span>
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <span class="panel-title">Schedule Log</span>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body" style="padding: 12px;">
+              <div class="log" id="scheduleLogContainer">
+                <div class="log-line">
+                  <span class="log-ts">--:--:--</span>
+                  <span class="log-msg">Schedule system ready</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1914,8 +1886,66 @@
           saEmail.textContent = 'credentials.json not found';
         }
 
+        // Load scheduling config into Delivery Settings panel
+        if (data.schedulingConfig) {
+          const sc = data.schedulingConfig;
+          const modeInput = document.querySelector(`input[name="deliveryMode"][value="${sc.mode || 'drafts-only'}"]`);
+          if (modeInput) modeInput.checked = true;
+          if (sc.timezone) csSetValue('deliveryTimezoneSelect', sc.timezone);
+          if (sc.startTime) document.getElementById('deliveryStartTime').value = sc.startTime;
+          if (sc.endTime) document.getElementById('deliveryEndTime').value = sc.endTime;
+          if (sc.minInterval != null) document.getElementById('deliveryMinInterval').value = sc.minInterval;
+          if (sc.maxInterval != null) document.getElementById('deliveryMaxInterval').value = sc.maxInterval;
+          // Sync run mode toggle to saved default
+          const runModeMap = { 'drafts-only': 'runModeDrafts', 'auto-schedule': 'runModeSchedule' };
+          const activeRunBtn = document.getElementById(runModeMap[sc.mode] || 'runModeDrafts');
+          if (activeRunBtn) {
+            document.querySelectorAll('#runModeDrafts, #runModeSchedule').forEach(b => b.classList.remove('active'));
+            activeRunBtn.classList.add('active');
+          }
+        }
+
       } catch (err) {
         console.error('Failed to load settings:', err);
+      }
+    }
+
+    async function saveDeliverySettings() {
+      const mode = document.querySelector('input[name="deliveryMode"]:checked')?.value || 'drafts-only';
+      const timezone = csGetValue('deliveryTimezoneSelect') || 'Europe/Madrid';
+      const startTime = document.getElementById('deliveryStartTime').value || '09:00';
+      const endTime = document.getElementById('deliveryEndTime').value || '17:00';
+      const minInterval = parseInt(document.getElementById('deliveryMinInterval').value) || 15;
+      const maxInterval = parseInt(document.getElementById('deliveryMaxInterval').value) || 25;
+      const badge = document.getElementById('deliverySettingsStatus');
+      badge.textContent = 'Saving...';
+      badge.className = 'badge badge-warning';
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schedulingConfig: { mode, timezone, startTime, endTime, minInterval, maxInterval } })
+        });
+        if (res.ok) {
+          badge.textContent = 'Saved';
+          badge.className = 'badge badge-connected';
+          // Sync the run mode toggle default
+          const runModeMap = { 'drafts-only': 'runModeDrafts', 'auto-schedule': 'runModeSchedule' };
+          const activeRunBtn = document.getElementById(runModeMap[mode] || 'runModeDrafts');
+          if (activeRunBtn) {
+            document.querySelectorAll('#runModeDrafts, #runModeSchedule').forEach(b => b.classList.remove('active'));
+            activeRunBtn.classList.add('active');
+            _runDeliveryMode = mode;
+          }
+          setTimeout(() => { badge.textContent = 'Saved'; badge.className = 'badge badge-idle'; }, 3000);
+        } else {
+          badge.textContent = 'Error';
+          badge.className = 'badge badge-error';
+        }
+      } catch (err) {
+        badge.textContent = 'Error';
+        badge.className = 'badge badge-error';
+        console.error(err);
       }
     }
 
@@ -2475,17 +2505,29 @@
       updateSelectedCount();
     }
 
+    // Track the per-run delivery mode override
+    let _runDeliveryMode = null; // null = use saved default
+
+    function setRunDeliveryMode(mode, btn) {
+      _runDeliveryMode = mode;
+      document.querySelectorAll('#runModeDrafts, #runModeSchedule').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
     async function startProcessing() {
       const rows = getSelectedRows();
       if (rows.length === 0) {
         addLog('No leads selected. Select rows to process.');
         return;
       }
+      const deliveryMode = _runDeliveryMode; // null = server uses saved config
       try {
+        const body = { rows };
+        if (deliveryMode) body.deliveryMode = deliveryMode;
         const res = await fetch('/api/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows })
+          body: JSON.stringify(body)
         });
         const data = await res.json();
         if (res.ok) {
@@ -2849,21 +2891,16 @@
       try {
         const res = await fetch('/api/schedule/status');
         const data = await res.json();
-        if (data.scheduledEmails && data.scheduledEmails.length > 0) {
-          const tz = data.settings?.timezone || 'America/New_York';
-          document.getElementById('schedulePreviewSection').classList.remove('hidden');
-          renderScheduleTable(data.scheduledEmails, tz);
-          document.getElementById('scheduleSentCount').textContent = data.results.sent;
-          document.getElementById('schedulePendingCount').textContent = data.results.pending;
-          document.getElementById('scheduleFailedCount').textContent = data.results.failed;
-          const hasPending = data.scheduledEmails.some(e => e.status === 'pending');
-          if (hasPending) {
-            document.getElementById('stopScheduleBtn').disabled = false;
-            document.getElementById('startScheduleBtn').disabled = false;
-            document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
-            startSchedulePolling();
-            addScheduleLog(`Restored: ${data.scheduledEmails.filter(e => e.status === 'pending').length} pending email(s)`);
-          }
+        const tz = data.settings?.timezone || 'Europe/Madrid';
+        renderScheduleTable(data.scheduledEmails || [], tz);
+        document.getElementById('scheduleSentCount').textContent = data.results?.sent || 0;
+        document.getElementById('schedulePendingCount').textContent = data.results?.pending || 0;
+        document.getElementById('scheduleFailedCount').textContent = data.results?.failed || 0;
+        const hasPending = data.scheduledEmails && data.scheduledEmails.some(e => e.status === 'pending');
+        if (hasPending) {
+          document.getElementById('stopScheduleBtn').disabled = false;
+          startSchedulePolling();
+          addScheduleLog(`Restored: ${data.scheduledEmails.filter(e => e.status === 'pending').length} pending email(s)`);
         }
       } catch (err) { console.error(err); }
     }
@@ -2948,7 +2985,19 @@
     }
 
     function renderScheduleTable(emails, tz) {
+      const emptyEl = document.getElementById('scheduleQueueEmpty');
+      const tableEl = document.getElementById('schedulePreviewTable');
       const tbody = document.getElementById('schedulePreviewBody');
+
+      if (!emails || emails.length === 0) {
+        emptyEl.style.display = '';
+        tableEl.classList.add('hidden');
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      tableEl.classList.remove('hidden');
+
       tbody.innerHTML = emails.map(email => {
         let badgeClass = 'badge-idle', statusText = 'Pending';
         if (email.status === 'sent') { badgeClass = 'badge-success'; statusText = 'Sent'; }
@@ -2963,162 +3012,10 @@
           <td style="color: var(--text-primary); font-weight: 500;">${email.company}</td>
           <td style="font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
           <td style="color: var(--accent);">${times.selected}</td>
-          <td>${times.local}</td>
           <td><span class="badge ${badgeClass}">${statusText}</span></td>
           <td>${cancelBtn}</td>
         </tr>`;
       }).join('');
-    }
-
-    async function createTestDraft() {
-      const email = document.getElementById('testEmail').value;
-      const resultDiv = document.getElementById('testDraftResult');
-      if (!email) {
-        resultDiv.innerHTML = '<span style="color: var(--error);">Please enter an email address</span>';
-        resultDiv.classList.remove('hidden');
-        return;
-      }
-      resultDiv.innerHTML = '<span style="color: var(--text-muted);">Creating test draft...</span>';
-      resultDiv.classList.remove('hidden');
-      try {
-        const res = await fetch('/api/schedule/test-draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          resultDiv.innerHTML = `<span style="color: var(--accent);">Test draft created: "${data.subject}"</span>`;
-          addScheduleLog(`Test draft created for ${email}`);
-        } else {
-          resultDiv.innerHTML = `<span style="color: var(--error);">Error: ${data.error}</span>`;
-        }
-      } catch (err) {
-        resultDiv.innerHTML = `<span style="color: var(--error);">Error: ${err.message}</span>`;
-      }
-    }
-
-    function showScheduleError(message) {
-      const w = document.getElementById('scheduleWarning');
-      w.textContent = message;
-      w.classList.remove('hidden');
-      w.className = 'banner banner-error';
-      addScheduleLog('Error: ' + message);
-      document.getElementById('schedulePreviewSection').classList.add('hidden');
-      document.getElementById('startScheduleBtn').disabled = true;
-    }
-
-    function clearScheduleError() {
-      document.getElementById('scheduleWarning').classList.add('hidden');
-    }
-
-    async function previewSchedule() {
-      clearScheduleError();
-      const tbody = document.getElementById('schedulePreviewBody');
-      tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading...</td></tr>`;
-      document.getElementById('schedulePreviewSection').classList.remove('hidden');
-
-      try {
-        const statusRes = await fetch('/api/schedule/status');
-        const statusData = await statusRes.json();
-        const hasPendingScheduled = statusData.scheduledEmails && statusData.scheduledEmails.some(e => e.status === 'pending');
-
-        if (hasPendingScheduled) {
-          const tz = statusData.settings?.timezone || 'America/New_York';
-          renderScheduleTable(statusData.scheduledEmails, tz);
-          const pendingCount = statusData.scheduledEmails.filter(e => e.status === 'pending').length;
-          addScheduleLog(`Showing ${pendingCount} scheduled email(s)`);
-          document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
-          document.getElementById('startScheduleBtn').disabled = false;
-          document.getElementById('stopScheduleBtn').disabled = false;
-          if (!schedulePollInterval) startSchedulePolling();
-          return;
-        }
-
-        const scheduleDate = csGetValue('scheduleDateSelect');
-        const timezone = csGetValue('timezoneSelect');
-        const startTime = csGetValue('startTimeSelect');
-        const endTime = csGetValue('endTimeSelect');
-        const minInterval = parseInt(document.getElementById('minInterval').value) || 15;
-        const maxInterval = document.getElementById('maxInterval').value;
-        const filterEmail = document.getElementById('filterEmail').value;
-
-        if (endTime <= startTime) { showScheduleError('End time must be later than start time.'); return; }
-
-        addScheduleLog('Calculating schedule preview...');
-        if (filterEmail) addScheduleLog(`Filtering by: ${filterEmail}`);
-
-        const res = await fetch('/api/schedule/preview', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
-        });
-        const data = await res.json();
-        if (!res.ok) { showScheduleError(data.error || 'Failed to preview'); return; }
-
-        schedulePreviewData = data;
-
-        const warningDiv = document.getElementById('scheduleWarning');
-        if (data.warning) {
-          warningDiv.textContent = data.warning;
-          warningDiv.className = 'banner banner-warn';
-          warningDiv.classList.remove('hidden');
-        } else {
-          warningDiv.classList.add('hidden');
-        }
-
-        if (data.emails.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No drafted emails found. Create drafts first.</td></tr>`;
-          document.getElementById('startScheduleBtn').disabled = true;
-        } else {
-          const previewTz = timezone || 'America/New_York';
-          tbody.innerHTML = data.emails.map(email => {
-            const times = email.scheduledTime ? formatTimeInTimezone(email.scheduledTime, previewTz) : { selected: 'Not scheduled', local: '-' };
-            return `<tr>
-              <td style="color: var(--text-primary); font-weight: 500;">${email.company}</td>
-              <td style="font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
-              <td style="color: ${email.scheduledTime ? 'var(--accent)' : 'var(--text-muted)'};">${times.selected}</td>
-              <td>${times.local}</td>
-              <td><span class="badge ${email.scheduledTime ? 'badge-idle' : 'badge-error'}">${email.scheduledTime ? 'Ready' : 'Not scheduled'}</span></td>
-              <td>-</td>
-            </tr>`;
-          }).join('');
-          document.getElementById('startScheduleBtn').disabled = false;
-          document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
-        }
-        addScheduleLog(`Preview ready: ${data.emails.filter(e => e.scheduledTime).length} emails will be scheduled`);
-      } catch (err) { addScheduleLog('Error: ' + err.message); }
-    }
-
-    async function startSchedule() {
-      const scheduleDate = csGetValue('scheduleDateSelect');
-      const timezone = csGetValue('timezoneSelect');
-      const startTime = csGetValue('startTimeSelect');
-      const endTime = csGetValue('endTimeSelect');
-      const minInterval = document.getElementById('minInterval').value;
-      const maxInterval = document.getElementById('maxInterval').value;
-      const filterEmail = document.getElementById('filterEmail').value;
-
-      addScheduleLog('Starting scheduled sending...');
-      if (filterEmail) addScheduleLog(`Filter active: ${filterEmail}`);
-
-      try {
-        const res = await fetch('/api/schedule/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          document.getElementById('scheduleProgressSection').classList.remove('hidden');
-          document.getElementById('stopScheduleBtn').disabled = false;
-          if (data.existingPending) addScheduleLog(`Adding to ${data.existingPending} existing pending email(s)`);
-          updateSidebarStatus('Sending scheduled...', 'green');
-          startSchedulePolling();
-        } else {
-          addScheduleLog('Error: ' + (data.error || 'Failed to start'));
-        }
-      } catch (err) { addScheduleLog('Error: ' + err.message); }
     }
 
     async function stopSchedule() {
@@ -3126,7 +3023,6 @@
         const res = await fetch('/api/schedule/stop', { method: 'POST' });
         const data = await res.json();
         addScheduleLog(data.message || 'Schedule stopped');
-        document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
         document.getElementById('stopScheduleBtn').disabled = true;
         updateSidebarStatus('Idle', 'gray');
         updateScheduleStatus();
@@ -3144,42 +3040,29 @@
         const res = await fetch('/api/schedule/status');
         const data = await res.json();
 
-        const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
-        document.getElementById('scheduleProgressBar').style.width = progress + '%';
-        document.getElementById('scheduleProgressLabel').textContent = `${data.progress} / ${data.total}`;
-        document.getElementById('scheduleSentCount').textContent = data.results.sent;
-        document.getElementById('schedulePendingCount').textContent = data.results.pending;
-        document.getElementById('scheduleFailedCount').textContent = data.results.failed;
+        document.getElementById('scheduleSentCount').textContent = data.results?.sent || 0;
+        document.getElementById('schedulePendingCount').textContent = data.results?.pending || 0;
+        document.getElementById('scheduleFailedCount').textContent = data.results?.failed || 0;
 
         const hasPending = data.scheduledEmails && data.scheduledEmails.some(e => e.status === 'pending');
-        if (data.running) {
-          document.getElementById('scheduleStatus').textContent = 'Scheduling...';
-          document.getElementById('startScheduleBtn').disabled = true;
+        const badge = document.getElementById('scheduleStatusBadge');
+        if (data.running || hasPending) {
+          badge.textContent = 'Active';
+          badge.className = 'badge badge-success';
           document.getElementById('stopScheduleBtn').disabled = false;
-        } else if (hasPending) {
-          document.getElementById('scheduleStatus').textContent = 'Waiting for next send...';
-          document.getElementById('startScheduleBtn').disabled = false;
-          document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
-          document.getElementById('stopScheduleBtn').disabled = false;
-        } else if (data.progress > 0) {
-          document.getElementById('scheduleStatus').textContent = 'Complete';
-          document.getElementById('startScheduleBtn').disabled = false;
-          document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+        } else {
+          badge.textContent = 'Idle';
+          badge.className = 'badge badge-idle';
           document.getElementById('stopScheduleBtn').disabled = true;
           updateSidebarStatus('Idle', 'gray');
-          if (schedulePollInterval) { clearInterval(schedulePollInterval); schedulePollInterval = null; }
+          if (!hasPending && schedulePollInterval) { clearInterval(schedulePollInterval); schedulePollInterval = null; }
         }
 
-        const tz = data.settings?.timezone || 'America/New_York';
-        if (data.scheduledEmails && data.scheduledEmails.length > 0) {
-          renderScheduleTable(data.scheduledEmails, tz);
-        } else {
-          document.getElementById('schedulePreviewBody').innerHTML =
-            `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No emails currently scheduled.</td></tr>`;
-        }
+        const tz = data.settings?.timezone || 'Europe/Madrid';
+        renderScheduleTable(data.scheduledEmails || [], tz);
 
         const logContainer = document.getElementById('scheduleLogContainer');
-        if (data.logs.length > 0) {
+        if (data.logs && data.logs.length > 0) {
           logContainer.innerHTML = data.logs.map(log =>
             `<div class="log-line"><span class="log-ts">${log.time}</span><span class="log-msg">${log.message}</span></div>`
           ).join('');
