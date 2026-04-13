@@ -830,12 +830,12 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       const colMap = {
         firstName: findCol([/^first.?name$/], [/^first$/]),
         lastName: findCol([/^last.?name$/], [/^last$/, /^surname$/]),
-        company: findCol([/^company$/, /^company.?name$/], [/^business$/, /^organization$/]),
-        // Email: must be exactly "email" or "e-mail" — NOT "company name for emails"
-        email: findCol([/^email$/, /^e-?mail$/, /^email.?address$/]),
-        // Website: must be exactly "website" — NOT "person linkedin url" or any social URL column
-        website: findCol([/^website$/, /^company.?website$/], [/^web$/, /^site$/, /^domain$/]),
-        name: findCol([/^name$/]),
+        company: findCol([/^company$/, /^company.?name$/, /^organization.?name$/, /^organisation.?name$/], [/^business$/, /^organization$/, /^organisation$/, /^employer$/]),
+        // Email: must not be a column name that just happens to contain "email"
+        email: findCol([/^email$/, /^e-?mail$/, /^email.?address$/, /^work.?email$/, /^business.?email$/, /^contact.?email$/], [/^mail$/]),
+        // Website: exclude social media URLs explicitly by post-validation
+        website: findCol([/^website$/, /^company.?website$/, /^website.?url$/, /^company.?url$/, /^homepage$/, /^web.?address$/], [/^web$/, /^site$/, /^domain$/, /^url$/]),
+        name: findCol([/^name$/, /^full.?name$/]),
       };
 
       // Debug: log detected column mapping
@@ -894,18 +894,14 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Unsupported file type. Use CSV or XML.' });
     }
 
-    // Filter: require both email and website
+    // Filter: require at minimum an email address
     const valid = [];
     const skipped = [];
 
     for (const lead of leads) {
-      const missing = [];
-      if (!lead.email) missing.push('email');
-      if (!lead.website) missing.push('website');
-
-      if (missing.length > 0) {
+      if (!lead.email) {
         const identifier = lead.company || lead.firstName || lead.lastName || '(unnamed)';
-        skipped.push({ name: identifier, missing });
+        skipped.push({ name: identifier, missing: ['email'] });
       } else {
         valid.push(lead);
       }
@@ -913,7 +909,7 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
 
     if (valid.length === 0) {
       return res.status(400).json({
-        error: 'No valid leads found. All rows are missing email or website.',
+        error: 'No valid leads found. All rows are missing an email address.',
         totalParsed: leads.length,
         skipped: skipped.length,
         skippedDetails: skipped.slice(0, 20)
@@ -2367,24 +2363,26 @@ async function processSingleCompany(company) {
           scheduledTime: slotTime.toISOString(),
           status: 'pending'
         };
-        const delay = slotTime.getTime() - Date.now();
-        if (delay > 0) {
-          scheduledEmail.timeoutId = setTimeout(() => {
-            scheduleLog(`[TIMEOUT EXECUTING] ${scheduledEmail.company}`);
-            sendScheduledEmail(scheduledEmail);
-          }, delay);
-          scheduleJob.scheduledEmails.push(scheduledEmail);
-          scheduleJob.running = true;
-          scheduleJob.results.pending++;
+        const delay = Math.max(slotTime.getTime() - Date.now(), 0);
+        scheduledEmail.timeoutId = setTimeout(() => {
+          scheduleLog(`[TIMEOUT EXECUTING] ${scheduledEmail.company}`);
+          sendScheduledEmail(scheduledEmail);
+        }, delay);
+        scheduleJob.scheduledEmails.push(scheduledEmail);
+        scheduleJob.running = true;
+        scheduleJob.results.pending++;
+        finalStatus = 'Scheduled';
+        log(`  Auto-scheduled: ${formatTimeForTimezone(slotTime, scheduleJob.settings.timezone)}`);
+        // Best-effort sheet writes — don't let failures roll back the schedule
+        try {
           await updateStatus(company.company, 'Scheduled');
           await updateScheduledTime(company.company, slotTime, scheduleJob.settings.timezone);
-          finalStatus = 'Scheduled';
-          log(`  Auto-scheduled: ${formatTimeForTimezone(slotTime, scheduleJob.settings.timezone)}`);
-        } else {
-          await markAsProcessed(company.rowNumber, 'Drafted');
+        } catch (sheetErr) {
+          log(`  Warning: sheet update failed (email still scheduled): ${sheetErr.message}`);
         }
       } catch (err) {
         log(`  Auto-schedule failed: ${err.message}`);
+        finalStatus = 'Drafted';
         await markAsProcessed(company.rowNumber, 'Drafted');
       }
     } else {

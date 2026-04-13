@@ -1556,21 +1556,53 @@
               No leads found. Make sure leads are in Sheet1 (columns A-F).
             </div>
             <div id="leadsTableWrap" class="hidden" style="overflow-x: auto; overflow-y: auto; max-height: 520px;">
-              <table class="tbl" id="leadsTable">
+              <table class="tbl" id="leadsTable" style="table-layout: fixed; min-width: 900px;">
+                <colgroup>
+                  <col style="width: 38px;">
+                  <col style="width: 48px;">
+                  <col style="width: 13%;">
+                  <col style="width: 13%;">
+                  <col style="width: 20%;">
+                  <col style="width: 16%;">
+                  <col style="width: 11%;">
+                  <col style="width: 9%;">
+                  <col style="width: 13%;">
+                  <col style="width: 60px;">
+                </colgroup>
                 <thead>
                   <tr>
-                    <th style="width: 36px; padding-left: 14px;">
+                    <th style="padding-left: 14px;">
                       <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)" style="accent-color: var(--chart-2); cursor: pointer;">
                     </th>
-                    <th style="width: 36px;">#</th>
-                    <th style="width: 12%;">Name</th>
-                    <th style="width: 12%;">Company</th>
-                    <th style="width: 18%;">Email</th>
-                    <th style="width: 16%;">Website</th>
-                    <th style="width: 10%;">Status</th>
-                    <th style="width: 10%;">Scheduled</th>
-                    <th style="width: 14%;">Draft</th>
-                    <th style="width: 64px;">Actions</th>
+                    <th>#</th>
+                    <th>
+                      <span style="display:flex;align-items:center;gap:5px;">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="opacity:0.4;flex-shrink:0;"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        Name
+                      </span>
+                    </th>
+                    <th>
+                      <span style="display:flex;align-items:center;gap:5px;">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="opacity:0.4;flex-shrink:0;"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        Company
+                      </span>
+                    </th>
+                    <th>
+                      <span style="display:flex;align-items:center;gap:5px;">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="opacity:0.4;flex-shrink:0;"><rect x="1" y="4" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 6l7 4 7-4" stroke="currentColor" stroke-width="1.5"/></svg>
+                        Email
+                      </span>
+                    </th>
+                    <th>
+                      <span style="display:flex;align-items:center;gap:5px;">
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style="opacity:0.4;flex-shrink:0;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 2c0 0 2 2 2 6s-2 6-2 6M8 2c0 0-2 2-2 6s2 6 2 6M2 8h12" stroke="currentColor" stroke-width="1.2"/></svg>
+                        Website
+                      </span>
+                    </th>
+                    <th>Status</th>
+                    <th>Scheduled</th>
+                    <th>Draft</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="leadsBody"></tbody>
@@ -1889,16 +1921,21 @@
         // Load scheduling config into Delivery Settings panel
         if (data.schedulingConfig) {
           const sc = data.schedulingConfig;
-          const modeInput = document.querySelector(`input[name="deliveryMode"][value="${sc.mode || 'drafts-only'}"]`);
-          if (modeInput) modeInput.checked = true;
+          const savedMode = sc.mode || 'drafts-only';
+          const modeInput = document.querySelector(`input[name="deliveryMode"][value="${savedMode}"]`);
+          if (modeInput) {
+            modeInput.checked = true;
+            highlightDeliveryModeLabels(savedMode);
+          }
           if (sc.timezone) csSetValue('deliveryTimezoneSelect', sc.timezone);
           if (sc.startTime) document.getElementById('deliveryStartTime').value = sc.startTime;
           if (sc.endTime) document.getElementById('deliveryEndTime').value = sc.endTime;
           if (sc.minInterval != null) document.getElementById('deliveryMinInterval').value = sc.minInterval;
           if (sc.maxInterval != null) document.getElementById('deliveryMaxInterval').value = sc.maxInterval;
-          // Sync run mode toggle to saved default
+          // Sync run mode toggle and internal state to saved default
+          _runDeliveryMode = savedMode;
           const runModeMap = { 'drafts-only': 'runModeDrafts', 'auto-schedule': 'runModeSchedule' };
-          const activeRunBtn = document.getElementById(runModeMap[sc.mode] || 'runModeDrafts');
+          const activeRunBtn = document.getElementById(runModeMap[savedMode] || 'runModeDrafts');
           if (activeRunBtn) {
             document.querySelectorAll('#runModeDrafts, #runModeSchedule').forEach(b => b.classList.remove('active'));
             activeRunBtn.classList.add('active');
@@ -1909,6 +1946,22 @@
         console.error('Failed to load settings:', err);
       }
     }
+
+    function highlightDeliveryModeLabels(mode) {
+      const map = { 'drafts-only': 'modeRadioDrafts', 'auto-schedule': 'modeRadioSchedule' };
+      document.querySelectorAll('#modeRadioDrafts, #modeRadioSchedule').forEach(label => {
+        label.style.borderColor = label.id === map[mode]
+          ? 'rgba(255,255,255,0.3)'
+          : 'rgba(255,255,255,0.08)';
+      });
+    }
+
+    // Update label borders whenever a delivery mode radio changes
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('input[name="deliveryMode"]').forEach(radio => {
+        radio.addEventListener('change', () => highlightDeliveryModeLabels(radio.value));
+      });
+    });
 
     async function saveDeliverySettings() {
       const mode = document.querySelector('input[name="deliveryMode"]:checked')?.value || 'drafts-only';
@@ -1937,6 +1990,7 @@
             activeRunBtn.classList.add('active');
             _runDeliveryMode = mode;
           }
+          highlightDeliveryModeLabels(mode);
           setTimeout(() => { badge.textContent = 'Saved'; badge.className = 'badge badge-idle'; }, 3000);
         } else {
           badge.textContent = 'Error';
@@ -2367,24 +2421,24 @@
           <td style="padding-left: 14px;">
             <input type="checkbox" class="lead-check" value="${lead.rowNumber}" onchange="updateSelectedCount()" ${proc ? 'disabled' : ''} style="accent-color: var(--chart-2); cursor: ${proc ? 'not-allowed' : 'pointer'};">
           </td>
-          <td style="font-family: var(--font-mono); font-size: 11px; opacity: 0.4;">${lead.rowNumber}</td>
-          <td style="color: var(--foreground); font-weight: 500;" title="${esc(name)}">${esc(name)}</td>
-          <td title="${esc(lead.company)}">${esc(lead.company)}</td>
-          <td style="font-family: var(--font-mono); font-size: 12px;" title="${esc(lead.email)}">${esc(lead.email)}</td>
-          <td style="font-size: 12px;" title="${esc(lead.website)}">${lead.website ? esc(lead.website.replace(/^https?:\/\//, '')) : ''}</td>
+          <td style="font-family: var(--font-mono); font-size: 11px; color: var(--muted-foreground); opacity: 0.5; text-align: center;">${lead.rowNumber}</td>
+          <td style="color: var(--foreground); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${esc(name)}">${esc(name)}</td>
+          <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${esc(lead.company)}">${esc(lead.company)}</td>
+          <td style="font-family: var(--font-mono); font-size: 11.5px; color: var(--chart-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${esc(lead.email)}">${esc(lead.email)}</td>
+          <td style="font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${esc(lead.website)}">${lead.website ? esc(lead.website.replace(/^https?:\/\//, '')) : ''}</td>
           <td>
             <span class="lead-status ${statusClass || 'lead-status-none'}" id="lead-status-${lead.rowNumber}">${esc(lead.status) || 'Queued'}</span>
             <span class="lead-detail" id="lead-detail-${lead.rowNumber}"></span>
           </td>
-          <td style="font-size: 11px; color: var(--muted-foreground);">
+          <td style="font-size: 11px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${lead.scheduledTime
               ? `<span id="sched-${lead.rowNumber}" style="cursor: pointer;" onclick="editScheduleTime(${lead.rowNumber}, '${esc(lead.company)}', '${esc(lead.email)}')" title="Click to reschedule">${formatLeadScheduledTime(lead.scheduledTime)}</span>`
-              : ''}
+              : '<span style="opacity:0.3;">—</span>'}
           </td>
-          <td style="font-size: 11px; color: var(--muted-foreground);">
+          <td style="font-size: 11px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             ${hasDraft
-              ? `<span class="clickable" onclick="viewDraft(${lead.rowNumber})" style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;">${esc(draftPreview) || 'View draft'}</span>`
-              : ''}
+              ? `<span class="clickable" onclick="viewDraft(${lead.rowNumber})" style="cursor:pointer; color: var(--chart-2); text-decoration: underline dotted; text-underline-offset: 2px;">${esc(draftPreview) || 'View draft'}</span>`
+              : '<span style="opacity:0.3;">—</span>'}
           </td>
           <td>
             ${canRedraft
