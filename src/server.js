@@ -4,7 +4,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
-import { readCompanies, readAllLeads, appendLeadsToSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow } from './sheets.js';
+import { readCompanies, readAllLeads, appendLeadsToSheet, clearLeadsFromSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow } from './sheets.js';
 import multer from 'multer';
 import { createDraft, createDraftWithSignature, updateDraft, deleteDraft, getMyEmail, findDraftByRecipientAndSubject, sendDraft, getGmailClient, getSendAsAddresses } from './gmail.js';
 import { findTrustpilotPage, scrapeReviews, extractPainPoints } from './trustpilot.js';
@@ -227,7 +227,7 @@ app.post('/api/settings/test-sheet', async (req, res) => {
 
     // Auto-format the sheet in the background
     try {
-      const formatRes = await fetch(`http://localhost:${PORT}/api/settings/format-sheet`, {
+      await fetch(`http://localhost:${PORT}/api/settings/format-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheetId: id })
@@ -883,13 +883,56 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       });
     }
 
-    const count = await appendLeadsToSheet(valid);
+    const mode = req.body?.mode || req.query?.mode || 'append';
+    let duplicates = 0;
+    let cleared = 0;
+    let toImport = valid;
+
+    if (mode === 'replace') {
+      // Clear existing leads then import all
+      cleared = await clearLeadsFromSheet();
+    } else {
+      // Append mode: deduplicate against existing leads by email
+      try {
+        const existing = await readAllLeads(2);
+        const existingEmails = new Set(existing.map(l => l.email.toLowerCase()));
+        const unique = [];
+        for (const lead of valid) {
+          if (existingEmails.has(lead.email.toLowerCase())) {
+            duplicates++;
+          } else {
+            unique.push(lead);
+            existingEmails.add(lead.email.toLowerCase()); // prevent dupes within the import file too
+          }
+        }
+        toImport = unique;
+      } catch (err) {
+        console.log('Could not check for duplicates, importing all:', err.message);
+      }
+    }
+
+    if (toImport.length === 0) {
+      return res.json({
+        success: true,
+        imported: 0,
+        totalParsed: leads.length,
+        skipped: skipped.length,
+        skippedDetails: skipped.slice(0, 30),
+        duplicates,
+        mode
+      });
+    }
+
+    const count = await appendLeadsToSheet(toImport);
     res.json({
       success: true,
       imported: count,
       totalParsed: leads.length,
       skipped: skipped.length,
-      skippedDetails: skipped.slice(0, 30)
+      skippedDetails: skipped.slice(0, 30),
+      duplicates,
+      cleared,
+      mode
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
