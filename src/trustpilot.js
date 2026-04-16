@@ -208,7 +208,18 @@ async function _scrapeReviews(browser, url, stars = [1, 2], maxReviews = 20) {
     console.error(`  Error scraping reviews: ${error.message}`);
   }
 
-  return reviews.slice(0, maxReviews);
+  // Filter to reviews from the past 6 months only
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const recentReviews = reviews.filter(r => {
+    if (!r.date) return false;
+    const reviewDate = new Date(r.date);
+    return !isNaN(reviewDate.getTime()) && reviewDate >= sixMonthsAgo;
+  });
+
+  console.log(`  Filtered to ${recentReviews.length} reviews from past 6 months (of ${reviews.length} total)`);
+  return recentReviews.slice(0, maxReviews);
 }
 
 // Public wrappers that manage their own browser (for standalone use)

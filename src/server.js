@@ -4,7 +4,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
-import { readCompanies, readAllLeads, appendLeadsToSheet, clearLeadsFromSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow } from './sheets.js';
+import { readCompanies, readAllLeads, appendLeadsToSheet, clearLeadsFromSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow, deleteLeadRow } from './sheets.js';
 import multer from 'multer';
 import { createDraft, createDraftWithSignature, updateDraft, deleteDraft, getMyEmail, findDraftByRecipientAndSubject, sendDraft, getGmailClient, getSendAsAddresses } from './gmail.js';
 import { findTrustpilotPage, scrapeReviews, extractPainPoints } from './trustpilot.js';
@@ -101,6 +101,50 @@ function getGmailStatus() {
   return { connected: false, token: null };
 }
 
+/**
+ * Default outreach profile with 4 built-in presets.
+ * Built-in presets are never stored in settings.json — they always come from here.
+ */
+function getDefaultOutreachProfile() {
+  return {
+    activePreset: 'ecommerce-ops',
+    presets: {
+      'ecommerce-ops': {
+        name: 'E-commerce Ops',
+        builtin: true,
+        painPoints: 'Late deliveries, lost packages, wrong items shipped, fulfillment delays during peak season, tracking issues, slow refunds',
+        offer: 'We optimize fulfillment operations — 3PL routing, warehouse workflows, and peak-season scaling',
+        tone: 'casual',
+        reviewFocus: ['delivery timing', 'wrong items', 'tracking gaps', 'fulfillment errors', 'refund delays']
+      },
+      'seo-agency': {
+        name: 'SEO Agency',
+        builtin: true,
+        painPoints: 'Poor search rankings, website not found on Google, bad online visibility, broken SEO, organic traffic dropping',
+        offer: 'We fix search visibility — technical SEO, content strategy, and local ranking optimization',
+        tone: 'professional',
+        reviewFocus: ['poor discoverability', 'website issues', 'search ranking', 'online presence', 'traffic problems']
+      },
+      'dev-shop': {
+        name: 'Dev Shop',
+        builtin: true,
+        painPoints: 'Buggy checkout, site crashes, slow page loads, broken features, mobile issues, poor user experience',
+        offer: 'We fix web platforms — performance, stability, and user experience engineering',
+        tone: 'direct',
+        reviewFocus: ['site bugs', 'checkout issues', 'slow performance', 'broken features', 'mobile problems']
+      },
+      'cx-support': {
+        name: 'CX / Support',
+        builtin: true,
+        painPoints: 'Terrible customer service, slow response times, no refunds, ignored complaints, unhelpful support',
+        offer: 'We restructure support operations — response workflows, escalation paths, and resolution tracking',
+        tone: 'professional',
+        reviewFocus: ['customer service', 'response time', 'refund handling', 'complaint resolution', 'support quality']
+      }
+    }
+  };
+}
+
 // Load settings on startup (overrides .env)
 const savedSettings = loadSettings();
 
@@ -111,6 +155,7 @@ app.use(express.json());
 
 // GET /api/settings - Return current settings (masked)
 app.get('/api/settings', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const geminiKey = process.env.GEMINI_API_KEY || '';
     const sheetId = process.env.GOOGLE_SHEET_ID || '';
@@ -127,7 +172,7 @@ app.get('/api/settings', async (req, res) => {
       }
     }
 
-    // Load startRow and schedulingConfig from settings
+    // Load startRow, schedulingConfig, and outreachProfile from settings
     let startRow = 2;
     let schedulingConfig = {
       mode: 'drafts-only',
@@ -137,11 +182,19 @@ app.get('/api/settings', async (req, res) => {
       minInterval: 15,
       maxInterval: 25
     };
+    let outreachProfile = getDefaultOutreachProfile();
     if (existsSync(SETTINGS_PATH)) {
       try {
         const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
         if (s.startRow) startRow = s.startRow;
         if (s.schedulingConfig) schedulingConfig = { ...schedulingConfig, ...s.schedulingConfig };
+        if (s.outreachProfile) {
+          // Merge saved custom presets into the profile; built-in presets always come from defaults
+          outreachProfile = {
+            activePreset: s.outreachProfile.activePreset || 'ecommerce-ops',
+            presets: { ...outreachProfile.presets, ...(s.outreachProfile.presets || {}) }
+          };
+        }
       } catch (e) { /* ignore */ }
     }
 
@@ -154,7 +207,8 @@ app.get('/api/settings', async (req, res) => {
       serviceAccountEmail: serviceAccount.email,
       serviceAccountConnected: serviceAccount.connected,
       startRow,
-      schedulingConfig
+      schedulingConfig,
+      outreachProfile
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -164,7 +218,7 @@ app.get('/api/settings', async (req, res) => {
 // POST /api/settings - Save settings
 app.post('/api/settings', async (req, res) => {
   try {
-    const { geminiApiKey, googleSheetId, schedulingConfig } = req.body;
+    const { geminiApiKey, googleSheetId, schedulingConfig, outreachProfile } = req.body;
     const toSave = {};
 
     if (geminiApiKey !== undefined && !geminiApiKey.startsWith('*')) {
@@ -191,8 +245,47 @@ app.post('/api/settings', async (req, res) => {
       };
     }
 
+    if (outreachProfile !== undefined) {
+      // Only save activePreset and custom (non-builtin) presets — built-in presets are never persisted
+      const defaults = getDefaultOutreachProfile();
+      const customPresets = {};
+      for (const [slug, preset] of Object.entries(outreachProfile.presets || {})) {
+        if (!preset.builtin) customPresets[slug] = preset;
+      }
+      toSave.outreachProfile = {
+        activePreset: outreachProfile.activePreset || 'ecommerce-ops',
+        presets: customPresets
+      };
+    }
+
     const saved = saveSettings(toSave);
     res.json({ success: true, settings: saved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/settings/preset/:slug - Remove a custom preset
+app.delete('/api/settings/preset/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const defaults = getDefaultOutreachProfile();
+    if (defaults.presets[slug]) {
+      return res.status(400).json({ error: 'Built-in presets cannot be deleted' });
+    }
+    let saved = {};
+    if (existsSync(SETTINGS_PATH)) {
+      saved = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+    }
+    if (saved.outreachProfile?.presets?.[slug]) {
+      delete saved.outreachProfile.presets[slug];
+      // If the deleted preset was active, fall back to ecommerce-ops
+      if (saved.outreachProfile.activePreset === slug) {
+        saved.outreachProfile.activePreset = 'ecommerce-ops';
+      }
+      writeFileSync(SETTINGS_PATH, JSON.stringify(saved, null, 2));
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -765,7 +858,7 @@ app.get('/api/leads', async (req, res) => {
   try {
     const leads = await readAllLeads(2);
 
-    // Enrich with scheduled time from Emails tab
+    // Enrich with scheduled time and delivery status from Emails tab
     try {
       const emailsData = await getAllEmails();
       const emailMap = new Map();
@@ -777,10 +870,33 @@ app.get('/api/leads', async (req, res) => {
         if (match) {
           lead.scheduledTime = match.scheduledTime || '';
           lead.scheduleStatus = match.status || '';
+          // If Emails tab marks this as Sent, propagate to lead status and clear scheduled time
+          // so the Sent badge displays instead of the old scheduled time
+          if ((match.status || '').toLowerCase() === 'sent') {
+            lead.status = 'Sent';
+            lead.scheduledTime = '';
+          }
         }
       }
     } catch (e) {
       // Emails tab may not exist yet — that's OK
+    }
+
+    // In-memory scheduled emails always override sheet value for pending sends —
+    // the in-memory entry has a reliable ISO string vs the sheet's formatted string
+    for (const lead of leads) {
+      const mem = scheduleJob.scheduledEmails.find(
+        s => s.status === 'pending' && (
+          (s.ceoEmail && s.ceoEmail.toLowerCase() === (lead.email || '').toLowerCase()) ||
+          (s.company && s.company.toLowerCase() === (lead.company || '').toLowerCase())
+        )
+      );
+      if (mem && mem.scheduledTime) {
+        lead.scheduledTime = typeof mem.scheduledTime === 'string'
+          ? mem.scheduledTime
+          : mem.scheduledTime.toISOString();
+        lead.scheduleStatus = 'pending';
+      }
     }
 
     // Include the user's selected timezone
@@ -788,6 +904,36 @@ app.get('/api/leads', async (req, res) => {
     res.json({ leads, timezone: tz });
   } catch (error) {
     res.status(500).json({ error: error.message, leads: [] });
+  }
+});
+
+// API: Delete a lead from Sheet1
+app.delete('/api/leads/:rowNumber', async (req, res) => {
+  try {
+    const rowNumber = parseInt(req.params.rowNumber);
+    if (!rowNumber || rowNumber < 2) return res.status(400).json({ error: 'Invalid row number' });
+
+    // Also cancel any scheduled email for this lead
+    const lead = (await readAllLeads(2)).find(l => l.rowNumber === rowNumber);
+    if (lead) {
+      const idx = scheduleJob.scheduledEmails.findIndex(
+        s => s.status === 'pending' && (
+          (s.ceoEmail && s.ceoEmail.toLowerCase() === (lead.email || '').toLowerCase()) ||
+          (s.company && s.company.toLowerCase() === (lead.company || '').toLowerCase())
+        )
+      );
+      if (idx !== -1) {
+        clearTimeout(scheduleJob.scheduledEmails[idx].timeoutId);
+        scheduleJob.scheduledEmails.splice(idx, 1);
+        scheduleJob.results.pending = Math.max(0, scheduleJob.results.pending - 1);
+      }
+    }
+
+    await deleteLeadRow(rowNumber);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[DELETE] Error:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -968,6 +1114,82 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       mode
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API: Send a lead's draft immediately (bypasses scheduled queue)
+app.post('/api/send-now', async (req, res) => {
+  const { rowNumber, variantKey } = req.body;
+  if (!rowNumber) return res.status(400).json({ error: 'rowNumber required' });
+
+  try {
+    const leads = await readAllLeads(rowNumber);
+    const lead = leads.find(l => l.rowNumber === parseInt(rowNumber));
+    if (!lead) return res.status(404).json({ error: 'Lead not found' });
+    if (!lead.draftId && !lead.emailDraft) return res.status(400).json({ error: 'No draft found for this lead' });
+
+    const gmail = await getGmailClient();
+
+    // If variantKey specified and different from the drafted variant, update the draft first
+    if (variantKey && lead.emailDraft) {
+      try {
+        const parsed = JSON.parse(lead.emailDraft);
+        if (parsed.variants && parsed.variants[variantKey]) {
+          const chosenEmail = parsed.variants[variantKey].email;
+          const { subject: chosenSubject, body: chosenBody } = parseEmailDraft(chosenEmail);
+          if (chosenSubject && chosenBody && lead.draftId && lead.draftId !== 'N/A') {
+            let sendFrom = '';
+            try { sendFrom = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).sendFromEmail || ''; } catch(e) {}
+            // Update the existing Gmail draft with the chosen variant
+            await updateDraft(lead.draftId, lead.email, chosenSubject, chosenBody, sendFrom || undefined);
+            console.log(`[SEND-NOW] Updated draft to variant ${variantKey} before sending`);
+          }
+        }
+      } catch (e) {
+        console.log(`[SEND-NOW] Could not switch variant: ${e.message}, sending existing draft`);
+      }
+    }
+
+    // Try by stored draft ID first, fall back to search by recipient
+    let draftId = lead.draftId;
+    if (!draftId || draftId === 'N/A') {
+      // Extract subject from stored draft JSON
+      let subject = '';
+      try {
+        const parsed = JSON.parse(lead.emailDraft);
+        const vKey = variantKey || 'A';
+        const variant = parsed?.variants?.[vKey]?.email || parsed?.variants?.A?.email || '';
+        const subjectLine = variant.split('\n').find(l => l.toLowerCase().startsWith('subject:'));
+        subject = subjectLine ? subjectLine.replace(/^subject:\s*/i, '').trim() : '';
+      } catch (e) {}
+      const draft = subject ? await findDraftByRecipientAndSubject(lead.email, subject) : null;
+      if (!draft) return res.status(404).json({ error: 'Draft not found in Gmail — it may have been deleted' });
+      draftId = draft.id;
+    }
+
+    await gmail.users.drafts.send({ userId: 'me', requestBody: { id: draftId } });
+    // Update both Emails tab (status column) and Sheet1 column A
+    await updateStatus(lead.company, 'Sent');
+    await markAsProcessed(parseInt(rowNumber), 'Sent');
+
+    // Cancel any pending scheduled send for this lead
+    const scheduled = scheduleJob.scheduledEmails.find(e => e.ceoEmail === lead.email && e.status === 'pending');
+    if (scheduled) {
+      clearTimeout(scheduled.timeoutId);
+      scheduled.status = 'sent-manually';
+      scheduleJob.results.pending = Math.max(0, scheduleJob.results.pending - 1);
+      scheduleJob.results.sent++;
+      console.log(`[SEND-NOW] Cancelled scheduled send for ${lead.company} (sent manually)`);
+    }
+
+    // Track as sent to prevent duplicate sends
+    sentEmailAddresses.set(lead.email.toLowerCase(), { company: lead.company, sentAt: new Date().toISOString() });
+
+    console.log(`[SEND-NOW] Sent draft for ${lead.company} to ${lead.email}`);
+    res.json({ success: true, company: lead.company, email: lead.email });
+  } catch (err) {
+    console.error('[SEND-NOW] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -2284,14 +2506,35 @@ async function processSingleCompany(company) {
 
   log(`  Scraping reviews...`);
   const reviews = await scrapeReviews(trustpilot.url, [1, 2], 20);
-  log(`  Found ${reviews.length} negative reviews`);
+  log(`  Found ${reviews.length} negative reviews (past 6 months)`);
 
   if (reviews.length === 0) {
     await writeDraftToLead(company.rowNumber, { trustpilotUrl: trustpilot.url, emailDraft: '', draftId: '' });
-    await markAsProcessed(company.rowNumber, 'Skipped - No Reviews');
-    setLeadStatus(company.rowNumber, 'skipped', 'No negative reviews');
+    await markAsProcessed(company.rowNumber, 'Skipped - No Recent Reviews');
+    setLeadStatus(company.rowNumber, 'skipped', 'No negative reviews in past 6 months');
     currentJob.results.skipped++;
     return;
+  }
+
+  // Load active outreach config for this run
+  let outreachConfig = {};
+  try {
+    const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+    const defaults = getDefaultOutreachProfile();
+    const profile = {
+      activePreset: s.outreachProfile?.activePreset || 'ecommerce-ops',
+      presets: { ...defaults.presets, ...(s.outreachProfile?.presets || {}) }
+    };
+    const activePreset = profile.presets[profile.activePreset] || defaults.presets['ecommerce-ops'];
+    outreachConfig = {
+      painPoints: activePreset.painPoints,
+      offer: activePreset.offer,
+      tone: activePreset.tone,
+      reviewFocus: activePreset.reviewFocus
+    };
+    log(`  Using outreach profile: ${activePreset.name}`);
+  } catch (e) {
+    log(`  Warning: could not load outreach profile, using defaults`);
   }
 
   // Generate email
@@ -2300,7 +2543,8 @@ async function processSingleCompany(company) {
   const emailResult = await generateEmail({
     ceoName: company.ceoName,
     reviews,
-    company: company.company
+    company: company.company,
+    config: outreachConfig
   });
 
   // Extract variant A for the draft
@@ -2351,6 +2595,7 @@ async function processSingleCompany(company) {
         deliveryMode = s.schedulingConfig?.mode || 'drafts-only';
       } catch (e) { deliveryMode = 'drafts-only'; }
     }
+    log(`  Delivery mode: ${deliveryMode}`);
 
     if (deliveryMode === 'auto-schedule') {
       try {
@@ -2375,8 +2620,23 @@ async function processSingleCompany(company) {
         log(`  Auto-scheduled: ${formatTimeForTimezone(slotTime, scheduleJob.settings.timezone)}`);
         // Best-effort sheet writes — don't let failures roll back the schedule
         try {
-          await updateStatus(company.company, 'Scheduled');
-          await updateScheduledTime(company.company, slotTime, scheduleJob.settings.timezone);
+          await markAsProcessed(company.rowNumber, 'Scheduled');
+          // Upsert into Emails tab so scheduled time persists across server restarts
+          // and the emailMap in /api/leads can find this entry.
+          // updateStatus/updateScheduledTime are no-ops unless the company row exists first.
+          const painPointsSummary = reviews.slice(0, 3)
+            .map(r => (r.text || '').substring(0, 60))
+            .filter(Boolean).join('; ');
+          await writeOutreach({
+            company: company.company,
+            ceoName: company.ceoName,
+            ceoEmail: company.email,
+            trustpilotUrl: trustpilot.url,
+            painPoints: painPointsSummary,
+            generatedEmail: emailResult,
+            status: 'Scheduled'
+          });
+          await updateScheduledTime(company.company, slotTime.toISOString(), scheduleJob.settings.timezone);
         } catch (sheetErr) {
           log(`  Warning: sheet update failed (email still scheduled): ${sheetErr.message}`);
         }
