@@ -256,6 +256,10 @@
       justify-content: space-between;
       padding: 14px 20px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      transition: border-color 0.25s ease;
+    }
+    .panel-header.collapsible.collapsed {
+      border-bottom-color: transparent;
     }
 
     .panel-title {
@@ -923,19 +927,24 @@
       width: 16px;
       height: 16px;
       color: var(--muted-foreground);
-      transition: transform 0.2s ease;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       flex-shrink: 0;
     }
     .panel-header.collapsible.collapsed .panel-chevron {
       transform: rotate(-90deg);
     }
     .panel-body-wrap {
+      display: grid;
+      grid-template-rows: 1fr;
+      transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+      opacity: 1;
+    }
+    .panel-body-wrap > .panel-body {
       overflow: hidden;
-      max-height: 2000px;
-      transition: max-height 0.25s ease;
     }
     .panel-body-wrap.collapsed {
-      max-height: 0 !important;
+      grid-template-rows: 0fr;
+      opacity: 0;
     }
 
     /* Hidden */
@@ -1238,7 +1247,7 @@
 
     /* Detail modal overlay */
     .detail-modal-overlay {
-      display: none;
+      display: flex;
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.7);
@@ -1246,8 +1255,14 @@
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .detail-modal-overlay.open { display: flex; }
+    .detail-modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
     .detail-modal {
       background: var(--secondary);
       border: 1px solid var(--border);
@@ -1258,6 +1273,11 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transform: translateY(8px) scale(0.98);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .detail-modal-overlay.open .detail-modal {
+      transform: translateY(0) scale(1);
     }
     .detail-modal-header {
       display: flex;
@@ -1532,7 +1552,7 @@
                     <span class="cs-label" id="outreachPresetLabel">E-commerce Ops</span>
                     <svg class="cs-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                   </div>
-                  <div class="custom-select-dropdown" id="outreachPresetDropdown" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:100; background:var(--card); border:1px solid rgba(255,255,255,0.12); border-radius:var(--radius-xs); margin-top:4px; max-height:220px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+                  <div class="custom-select-dropdown" id="outreachPresetDropdown" style="position:absolute; top:100%; left:0; right:0; z-index:100; background:var(--card); border:1px solid rgba(255,255,255,0.12); border-radius:var(--radius-xs); margin-top:4px; max-height:220px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.4); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity 0.18s ease, transform 0.18s ease;">
                     <div id="outreachPresetOptions"></div>
                   </div>
                 </div>
@@ -2140,17 +2160,30 @@
     function toggleOutreachPresetDropdown() {
       const dd = document.getElementById('outreachPresetDropdown');
       if (!dd) return;
-      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-      if (dd.style.display === 'block') {
+      const isOpen = dd.style.opacity === '1';
+      if (isOpen) {
+        closeOutreachPresetDropdown();
+      } else {
+        dd.style.opacity = '1';
+        dd.style.pointerEvents = 'auto';
+        dd.style.transform = 'translateY(0)';
         setTimeout(() => document.addEventListener('click', closeOutreachPresetDropdownOnClick, { once: true }), 0);
       }
+    }
+
+    function closeOutreachPresetDropdown() {
+      const dd = document.getElementById('outreachPresetDropdown');
+      if (!dd) return;
+      dd.style.opacity = '0';
+      dd.style.pointerEvents = 'none';
+      dd.style.transform = 'translateY(-4px)';
     }
 
     function closeOutreachPresetDropdownOnClick(e) {
       const dd = document.getElementById('outreachPresetDropdown');
       const trigger = document.querySelector('#outreachPresetSelect .custom-select-trigger');
       if (dd && trigger && !dd.contains(e.target) && !trigger.contains(e.target)) {
-        dd.style.display = 'none';
+        closeOutreachPresetDropdown();
       }
     }
 
@@ -2158,7 +2191,7 @@
       if (!_outreachProfile) return;
       _outreachProfile.activePreset = slug;
       _pendingNewPreset = false;
-      document.getElementById('outreachPresetDropdown').style.display = 'none';
+      closeOutreachPresetDropdown();
       rebuildPresetDropdown(_outreachProfile);
       applyPresetToForm(slug);
       updateOutreachProfileBadge();
@@ -2296,6 +2329,8 @@
           if (_outreachProfile.activePreset === slug) _outreachProfile.activePreset = 'ecommerce-ops';
           rebuildPresetDropdown(_outreachProfile);
           applyPresetToForm(_outreachProfile.activePreset);
+          updateOutreachProfileBadge();
+          syncOutreachSaveButtons();
           showToast('Preset deleted', 'success');
         } else {
           const d = await res.json();
@@ -2307,9 +2342,7 @@
     }
 
     async function createBlankPreset() {
-      // Close the dropdown
-      const dd = document.getElementById('outreachPresetDropdown');
-      if (dd) dd.style.display = 'none';
+      closeOutreachPresetDropdown();
 
       if (!_outreachProfile) return;
 

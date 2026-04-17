@@ -27,3 +27,6 @@ npm-debug.log*
 
 # Dev notes (internal, not a real changelog)
 CHANGES.md
+
+# Screenshot utility
+take-screenshots.mjs
