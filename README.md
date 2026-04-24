@@ -2,11 +2,26 @@
 
 ![Pipeline](demo.gif)
 
-Turn Trustpilot complaints into personalized cold emails — automatically.
+**A signal-trigger outbound engine.** Turns public intent signals — 1★ and 2★ Trustpilot reviews — into personalized, pain-specific cold emails that land in the prospect's inbox inside a controlled send window.
 
-This tool scrapes 1-2 star reviews for each lead, uses Gemini AI to identify operational pain points, and generates three A/B-tested email variants per lead. Drafts land directly in Gmail, optionally scheduled for delivery within configurable business hours.
+Every unhappy review on Trustpilot is a **buying signal in plain sight**: an active, unresolved operational problem that your service is positioned to fix. This tool detects those signals at scale, maps them to your ICP and offer, and converts them into a qualified outbound motion — no SDR guesswork, no generic templates.
 
-**Built for:** Sales teams, agencies, and consultancies targeting companies with visible customer complaints on Trustpilot — across any industry.
+### The signal → action loop
+
+```
+Signal          →  Trigger              →  Action
+1★ / 2★ review  →  Pain matches offer   →  Personalized email in Gmail drafts
+                                            (scheduled, rate-limited, tz-aware)
+```
+
+### Why signal-based outbound
+
+- **Intent is public** — Trustpilot complaints are first-party evidence of unmet need. No third-party intent data, no cookies, no guesswork.
+- **Personalization at pipeline velocity** — every email cites the prospect's own reviewer language. 3 A/B variants per lead (Direct Value / Curiosity Gap / Peer Comparison).
+- **Outreach Profiles** — configure the pain signals you care about (late deliveries, SEO drops, checkout bugs, bad CX). The AI filters and frames around your wedge.
+- **Controlled send motion** — randomized intervals inside business hours, automatic overflow to the next day, timezone-aware. Deliverability-safe by default.
+
+**Built for:** signal-based outbound teams, agencies running founder-led sales, consultancies targeting accounts with visible operational breakage on Trustpilot — across any vertical.
 
 ![Setup Overview](screenshots/01-setup-overview.png)
 

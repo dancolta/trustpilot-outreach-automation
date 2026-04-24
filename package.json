@@ -22,6 +22,12 @@
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
+  "overrides": {
+    "basic-ftp": ">=5.2.0",
+    "express": {
+      "path-to-regexp": "0.1.12"
+    }
+  },
   "keywords": [
     "trustpilot",
     "outreach",

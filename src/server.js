@@ -3,7 +3,7 @@ import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, chmodSync } from 'fs';
 import { readCompanies, readAllLeads, appendLeadsToSheet, clearLeadsFromSheet, writeOutreach, markAsProcessed, writeDraftToLead, getEmailRow, getAllEmails, updateStatus, updateScheduledTime, clearScheduledTime, findFirstUnprocessedRow, deleteLeadRow } from './sheets.js';
 import multer from 'multer';
 import { createDraft, createDraftWithSignature, updateDraft, deleteDraft, getMyEmail, findDraftByRecipientAndSubject, sendDraft, getGmailClient, getSendAsAddresses } from './gmail.js';
@@ -47,6 +47,7 @@ function saveSettings(settings) {
     }
     const merged = { ...existing, ...settings };
     writeFileSync(SETTINGS_PATH, JSON.stringify(merged, null, 2));
+    try { chmodSync(SETTINGS_PATH, 0o600); } catch (e) { /* best-effort */ }
     console.log('[SETTINGS] Saved settings.json');
     return merged;
   } catch (err) {
@@ -151,6 +152,63 @@ const savedSettings = loadSettings();
 const app = express();
 app.use(express.json());
 
+// ============ SECURITY MIDDLEWARE ============
+
+// CSRF protection: reject cross-origin mutating requests from browsers.
+// CLI tools (curl, scripts) send no Origin header and are allowed through.
+// Browsers always send Origin on cross-origin requests — we require host match.
+app.use((req, res, next) => {
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+  const origin = req.headers.origin;
+  if (!origin) return next(); // curl / scripts / same-origin form posts without Origin
+  try {
+    const originHost = new URL(origin).host;
+    if (originHost === req.headers.host) return next();
+  } catch (e) { /* malformed Origin */ }
+  return res.status(403).json({ error: 'Cross-origin request rejected' });
+});
+
+// Debug-route gate: /api/debug/* only enabled when ENABLE_DEBUG=1.
+// Returns 404 (not 403) to avoid disclosing endpoint existence.
+function requireDebug(req, res, next) {
+  if (process.env.ENABLE_DEBUG === '1') return next();
+  return res.status(404).json({ error: 'Not found' });
+}
+
+// In-memory sliding-window rate limiter per-IP. No deps.
+// Guards send-heavy routes against CSRF abuse and runaway UI bugs.
+function makeRateLimiter({ windowMs, max, name }) {
+  const hits = new Map(); // ip -> [timestamps]
+  return function rateLimit(req, res, next) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const cutoff = now - windowMs;
+    const list = (hits.get(ip) || []).filter(t => t > cutoff);
+    if (list.length >= max) {
+      res.setHeader('Retry-After', Math.ceil(windowMs / 1000));
+      return res.status(429).json({ error: `Too many requests (${name} limit: ${max} per ${windowMs / 1000}s)` });
+    }
+    list.push(now);
+    hits.set(ip, list);
+    // Cheap GC: if map grows large, drop stale entries opportunistically
+    if (hits.size > 500) {
+      for (const [k, v] of hits) if (!v.some(t => t > cutoff)) hits.delete(k);
+    }
+    next();
+  };
+}
+const sendRateLimiter = makeRateLimiter({ windowMs: 60_000, max: 30, name: 'send' });
+const scheduleRateLimiter = makeRateLimiter({ windowMs: 60_000, max: 10, name: 'schedule-start' });
+
+// Safe error response: logs full detail server-side, returns a generic message + correlation id.
+// Use for 5xx responses on mutating routes where err.message might leak paths/library internals.
+function sendServerError(res, publicMsg, err) {
+  const requestId = Math.random().toString(36).slice(2, 10);
+  console.error(`[ERROR:${requestId}]`, err && err.stack ? err.stack : err);
+  return res.status(500).json({ error: publicMsg, requestId });
+}
+
 // ============ SETTINGS API (must be before static file serving) ============
 
 // GET /api/settings - Return current settings (masked)
@@ -211,7 +269,7 @@ app.get('/api/settings', async (req, res) => {
       outreachProfile
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -233,6 +291,34 @@ app.post('/api/settings', async (req, res) => {
     }
 
     if (schedulingConfig !== undefined) {
+      // Merge with existing on-disk settings so partial payloads validate against final values
+      let existing = {};
+      if (existsSync(SETTINGS_PATH)) {
+        try { existing = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')).schedulingConfig || {}; } catch (e) { /* ignore */ }
+      }
+      const merged = { ...existing, ...schedulingConfig };
+
+      // Timezone validity check
+      if (merged.timezone) {
+        try { new Intl.DateTimeFormat('en-US', { timeZone: merged.timezone }).format(0); }
+        catch (e) { return res.status(400).json({ error: `Invalid IANA timezone: ${merged.timezone}` }); }
+      }
+
+      if (merged.startTime && merged.endTime) {
+        const toMins = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+        if (toMins(merged.endTime) === toMins(merged.startTime)) {
+          return res.status(400).json({ error: 'endTime cannot equal startTime' });
+        }
+        // endTime < startTime is allowed and interpreted as an overnight window.
+      }
+      const mn = Number(merged.minInterval);
+      const mx = Number(merged.maxInterval);
+      if (Number.isFinite(mn) && Number.isFinite(mx) && mn > mx) {
+        return res.status(400).json({ error: 'minInterval must be <= maxInterval' });
+      }
+      if ((Number.isFinite(mn) && mn < 1) || (Number.isFinite(mx) && mx < 1)) {
+        return res.status(400).json({ error: 'intervals must be >= 1 minute' });
+      }
       toSave.schedulingConfig = schedulingConfig;
       // Apply to live scheduleJob.settings immediately
       scheduleJob.settings = {
@@ -261,7 +347,7 @@ app.post('/api/settings', async (req, res) => {
     const saved = saveSettings(toSave);
     res.json({ success: true, settings: saved });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -287,7 +373,7 @@ app.delete('/api/settings/preset/:slug', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -375,7 +461,7 @@ app.post('/api/settings/gmail-disconnect', (req, res) => {
     }
     res.json({ success: true, message: 'Gmail disconnected. Token removed.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -406,10 +492,18 @@ app.get('/api/settings/gmail-send-as', async (req, res) => {
 app.post('/api/settings/send-from', (req, res) => {
   try {
     const { email } = req.body;
-    const saved = saveSettings({ sendFromEmail: email || '' });
-    res.json({ success: true, sendFromEmail: email });
+    const clean = typeof email === 'string' ? email.trim() : '';
+    // Allow empty (clears the setting) OR a valid-looking email address
+    if (clean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      return res.status(400).json({ error: 'Invalid email address format' });
+    }
+    if (clean.length > 254) { // RFC 5321 max
+      return res.status(400).json({ error: 'Email address too long' });
+    }
+    saveSettings({ sendFromEmail: clean });
+    res.json({ success: true, sendFromEmail: clean });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -940,6 +1034,16 @@ app.delete('/api/leads/:rowNumber', async (req, res) => {
 // API: Import leads from CSV/XML file upload
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// Max rows to accept from a single import (DoS + Sheets quota guard)
+const MAX_IMPORT_ROWS = 5000;
+
+// Neutralize CSV formula injection: prefix cells starting with = + - @ \t \r with a single quote.
+// Google Sheets treats '-prefixed cells as literal text, same as Excel.
+function sanitizeCellForSheet(val) {
+  if (typeof val !== 'string' || !val) return val;
+  return /^[=+\-@\t\r]/.test(val) ? `'${val}` : val;
+}
+
 app.post('/api/import-leads', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -1013,7 +1117,14 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
         if (website && /linkedin|facebook|twitter|instagram|tiktok|youtube/i.test(website)) website = '';
 
         if (company || email) {
-          leads.push({ firstName, lastName, company, email, website });
+          leads.push({
+            firstName: sanitizeCellForSheet(firstName),
+            lastName: sanitizeCellForSheet(lastName),
+            company: sanitizeCellForSheet(company),
+            email: sanitizeCellForSheet(email),
+            website: sanitizeCellForSheet(website)
+          });
+          if (leads.length >= MAX_IMPORT_ROWS) break;
         }
       }
     } else if (ext === 'xml' || req.file.mimetype === 'text/xml' || req.file.mimetype === 'application/xml') {
@@ -1033,11 +1144,22 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
         const website = get('website') || get('url') || get('domain');
 
         if (company || email) {
-          leads.push({ firstName, lastName, company, email, website });
+          leads.push({
+            firstName: sanitizeCellForSheet(firstName),
+            lastName: sanitizeCellForSheet(lastName),
+            company: sanitizeCellForSheet(company),
+            email: sanitizeCellForSheet(email),
+            website: sanitizeCellForSheet(website)
+          });
+          if (leads.length >= MAX_IMPORT_ROWS) break;
         }
       }
     } else {
       return res.status(400).json({ error: 'Unsupported file type. Use CSV or XML.' });
+    }
+
+    if (leads.length >= MAX_IMPORT_ROWS) {
+      console.warn(`[IMPORT] Capped at ${MAX_IMPORT_ROWS} rows (source had more)`);
     }
 
     // Filter: require at minimum an email address
@@ -1114,12 +1236,12 @@ app.post('/api/import-leads', upload.single('file'), async (req, res) => {
       mode
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
 // API: Send a lead's draft immediately (bypasses scheduled queue)
-app.post('/api/send-now', async (req, res) => {
+app.post('/api/send-now', sendRateLimiter, async (req, res) => {
   const { rowNumber, variantKey } = req.body;
   if (!rowNumber) return res.status(400).json({ error: 'rowNumber required' });
 
@@ -1190,7 +1312,7 @@ app.post('/api/send-now', async (req, res) => {
     res.json({ success: true, company: lead.company, email: lead.email });
   } catch (err) {
     console.error('[SEND-NOW] Error:', err.message);
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -1280,7 +1402,7 @@ app.post('/api/redraft', async (req, res) => {
 
     res.json({ success: true, draftId: newDraftId, subject });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, 'Server error — see logs for details', err);
   }
 });
 
@@ -1311,7 +1433,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // API: Start processing — accepts { rows: [2,3,5] } or { startRow, endRow }, optional deliveryMode
-app.post('/api/start', async (req, res) => {
+app.post('/api/start', sendRateLimiter, async (req, res) => {
   const { startRow, endRow, rows, deliveryMode } = req.body;
 
   if (currentJob.running) {
@@ -1417,7 +1539,7 @@ app.get('/api/draft/check', async (req, res) => {
 });
 
 // API: Start drafting emails
-app.post('/api/draft/start', async (req, res) => {
+app.post('/api/draft/start', sendRateLimiter, async (req, res) => {
   const { mode } = req.body;
 
   if (draftJob.running) {
@@ -1459,7 +1581,7 @@ app.post('/api/draft/stop', (req, res) => {
 // ============ DEBUG API ============
 
 // DEBUG: Test find + send in isolation (bypasses all scheduling)
-app.post('/api/debug/find-and-send', async (req, res) => {
+app.post('/api/debug/find-and-send', requireDebug, async (req, res) => {
   const { email, subject } = req.body;
   const results = { steps: [] };
 
@@ -1524,7 +1646,7 @@ app.post('/api/debug/find-and-send', async (req, res) => {
 });
 
 // DEBUG: List all Gmail drafts
-app.get('/api/debug/drafts', async (req, res) => {
+app.get('/api/debug/drafts', requireDebug, async (req, res) => {
   try {
     const gmail = await getGmailClient();
     const draftsResp = await gmail.users.drafts.list({ userId: 'me', maxResults: 20 });
@@ -1550,7 +1672,7 @@ app.get('/api/debug/drafts', async (req, res) => {
 });
 
 // DEBUG: Send a specific draft by ID directly
-app.post('/api/debug/send-by-id', async (req, res) => {
+app.post('/api/debug/send-by-id', requireDebug, async (req, res) => {
   const { draftId } = req.body;
 
   if (!draftId) {
@@ -1677,10 +1799,10 @@ app.post('/api/schedule/recover', async (req, res) => {
 app.post('/api/schedule/preview', async (req, res) => {
   const { timezone, scheduleDate, startTime, endTime, minInterval, maxInterval, filterEmail } = req.body;
 
-  // Validation: End time must be after start time
-  if (endTime <= startTime) {
+  // Validation: end must differ from start (equal = invalid; less-than = overnight window)
+  if (endTime && startTime && endTime === startTime) {
     return res.status(400).json({
-      error: 'End time must be later than start time.'
+      error: 'End time cannot equal start time.'
     });
   }
 
@@ -1721,7 +1843,7 @@ app.post('/api/schedule/preview', async (req, res) => {
       maxInterval: parseInt(maxInterval) || 25
     };
 
-    const { scheduledTimes, warning, error } = calculateScheduleTimes(draftedEmails.length, settings);
+    const { scheduledTimes, warning, error, dayBreakdown } = calculateScheduleTimes(draftedEmails.length, settings);
 
     // Return error if time window is insufficient
     if (error) {
@@ -1740,7 +1862,8 @@ app.post('/api/schedule/preview', async (req, res) => {
     res.json({
       emails: preview,
       warning,
-      settings
+      settings,
+      dayBreakdown: dayBreakdown || []
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1748,7 +1871,7 @@ app.post('/api/schedule/preview', async (req, res) => {
 });
 
 // API: Start scheduled sending (supports adding to existing schedule)
-app.post('/api/schedule/start', async (req, res) => {
+app.post('/api/schedule/start', scheduleRateLimiter, async (req, res) => {
   const { timezone, scheduleDate, startTime, endTime, minInterval, maxInterval, filterEmail } = req.body;
 
   if (scheduleJob.running) {
@@ -1774,7 +1897,14 @@ app.post('/api/schedule/start', async (req, res) => {
     scheduleLog(`--- Adding more emails to existing schedule (${existingPending.length} already pending) ---`);
     res.json({ message: 'Adding to existing schedule', existingPending: existingPending.length });
   } else {
-    // Fresh start - reset everything
+    // Fresh start - clear any orphan timeouts from the previous job before resetting
+    if (Array.isArray(scheduleJob.scheduledEmails)) {
+      let cleared = 0;
+      for (const s of scheduleJob.scheduledEmails) {
+        if (s.timeoutId) { clearTimeout(s.timeoutId); s.timeoutId = null; cleared++; }
+      }
+      if (cleared > 0) scheduleLog(`[RESET] Cleared ${cleared} orphan timeout(s) from previous job`);
+    }
     scheduleJob = {
       running: true,
       progress: 0,
@@ -1984,103 +2114,141 @@ function calculateRequiredEndTime(startTime, requiredMinutes) {
   return `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
 }
 
+const MIN_SCHEDULE_LEAD_MS = 2 * 60 * 1000;
+
 /**
  * Calculate schedule times for emails within the given time range
  */
 function calculateScheduleTimes(emailCount, settings) {
-  const { timezone, scheduleDate, startTime, endTime, minInterval, maxInterval } = settings;
+  let { timezone, scheduleDate, startTime, endTime, minInterval, maxInterval } = settings;
   const now = new Date();
 
-  // Use provided date or today
-  const targetDate = scheduleDate || new Date().toLocaleDateString('en-CA', { timeZone: timezone });
+  // Guard: auto-fix inverted or invalid intervals
+  if (typeof minInterval !== 'number' || minInterval <= 0) minInterval = 15;
+  if (typeof maxInterval !== 'number' || maxInterval <= 0) maxInterval = 25;
+  if (minInterval > maxInterval) {
+    console.warn(`[SCHEDULE] Inverted intervals (min=${minInterval} > max=${maxInterval}), swapping`);
+    [minInterval, maxInterval] = [maxInterval, minInterval];
+  }
 
-  // First, check if time window is sufficient BEFORE any other processing
-  // Minimum time required = (emailCount - 1) * minInterval (first email sends at start, rest need intervals)
-  const minTimeRequiredMinutes = (emailCount - 1) * minInterval;
-
-  // Calculate available time window from the raw start/end times
+  // Validate window. If endTime <= startTime, interpret as overnight (ends next calendar day).
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);
-  const availableMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
-
-  // Check if time window is sufficient
-  if (emailCount > 1 && availableMinutes < minTimeRequiredMinutes) {
-    const requiredEndTime = calculateRequiredEndTime(startTime, minTimeRequiredMinutes);
+  const startMinsOfDay = startHour * 60 + startMin;
+  const endMinsOfDay = endHour * 60 + endMin;
+  const overnight = endMinsOfDay <= startMinsOfDay;
+  const windowMinutes = overnight
+    ? (24 * 60 - startMinsOfDay) + endMinsOfDay
+    : endMinsOfDay - startMinsOfDay;
+  if (windowMinutes <= 0) {
     return {
       scheduledTimes: [],
       warning: null,
-      error: `Time window too small. You have ${emailCount} emails requiring at least ${minTimeRequiredMinutes} minutes (using ${minInterval}-minute intervals). Your current window is only ${availableMinutes} minutes. Please set end time to ${requiredEndTime} or later.`
+      error: `Invalid time window: end time ${endTime} must differ from start time ${startTime}.`,
+      dayBreakdown: []
     };
   }
 
-  // Create date strings and parse them in the target timezone
-  const startStr = `${targetDate} ${startTime}`;
-  const endStr = `${targetDate} ${endTime}`;
+  // Starting calendar day in the target timezone (YYYY-MM-DD)
+  const firstDateStr = scheduleDate || new Date().toLocaleDateString('en-CA', { timeZone: timezone });
+  const [fy, fm, fd] = firstDateStr.split('-').map(Number);
 
-  // Parse the dates - these are in local time
-  let startDate = parseDateInTimezone(startStr, timezone);
-  let endDate = parseDateInTimezone(endStr, timezone);
-
-  // Minimum delay: always schedule at least 2 minutes from now (for testing safety)
-  const MIN_DELAY_MS = 2 * 60 * 1000; // 2 minutes
-  const minimumScheduleTime = new Date(now.getTime() + MIN_DELAY_MS);
-
-  // Start from whichever is later: configured start time OR minimum delay time
-  let currentTime;
-  if (startDate < minimumScheduleTime) {
-    currentTime = minimumScheduleTime;
-    console.log(`[SCHEDULE] Adjusted start to minimum delay: ${minimumScheduleTime.toISOString()}`);
-  } else {
-    currentTime = startDate;
-  }
+  const minimumScheduleTime = new Date(now.getTime() + MIN_SCHEDULE_LEAD_MS);
+  const MAX_DAYS = 14; // Safety cap — beyond 2 weeks we stop rolling over
 
   const scheduledTimes = [];
-  let warning = null;
+  const dayBreakdown = []; // [{ date: 'YYYY-MM-DD', count: N }]
 
-  for (let i = 0; i < emailCount; i++) {
-    // Check if we've passed the end time
-    if (currentTime >= endDate) {
-      warning = `Only ${scheduledTimes.length} of ${emailCount} emails fit in the time range. ${emailCount - scheduledTimes.length} emails will not be scheduled.`;
-      break;
+  for (let dayIndex = 0; dayIndex < MAX_DAYS && scheduledTimes.length < emailCount; dayIndex++) {
+    // Compute calendar date for this day
+    const d = new Date(fy, fm - 1, fd + dayIndex);
+    const dayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const startDate = parseDateInTimezone(`${dayStr} ${startTime}`, timezone);
+    let endDate;
+    if (overnight) {
+      // End time falls on the following calendar day
+      const nextDay = new Date(fy, fm - 1, fd + dayIndex + 1);
+      const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, '0')}-${String(nextDay.getDate()).padStart(2, '0')}`;
+      endDate = parseDateInTimezone(`${nextDayStr} ${endTime}`, timezone);
+    } else {
+      endDate = parseDateInTimezone(`${dayStr} ${endTime}`, timezone);
     }
 
-    scheduledTimes.push(new Date(currentTime));
+    // On day 0, clamp to now+MIN_DELAY if startTime already passed
+    let currentTime = (dayIndex === 0 && startDate < minimumScheduleTime) ? minimumScheduleTime : startDate;
+    if (dayIndex === 0 && currentTime !== startDate) {
+      console.log(`[SCHEDULE] Day 0 start adjusted to minimum delay: ${minimumScheduleTime.toISOString()}`);
+    }
 
-    // Add random interval for next email
-    const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
-    currentTime = new Date(currentTime.getTime() + interval * 60000);
+    // If even the adjusted time is past today's endDate, skip to next day
+    if (currentTime >= endDate) continue;
+
+    const dayStartCount = scheduledTimes.length;
+    while (scheduledTimes.length < emailCount && currentTime < endDate) {
+      scheduledTimes.push(new Date(currentTime));
+      const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
+      currentTime = new Date(currentTime.getTime() + interval * 60000);
+    }
+
+    const placedToday = scheduledTimes.length - dayStartCount;
+    if (placedToday > 0) {
+      dayBreakdown.push({ date: dayStr, count: placedToday });
+    }
   }
 
-  return { scheduledTimes, warning, error: null };
+  let warning = null;
+  const dropped = emailCount - scheduledTimes.length;
+  if (dropped > 0) {
+    warning = `Only ${scheduledTimes.length} of ${emailCount} emails fit within ${MAX_DAYS} days (window ${startTime}–${endTime}, ${minInterval}–${maxInterval} min intervals). ${dropped} dropped.`;
+  } else if (dayBreakdown.length > 1) {
+    const first = dayBreakdown[0];
+    const last = dayBreakdown[dayBreakdown.length - 1];
+    warning = `Schedule spans ${dayBreakdown.length} days (${first.date} → ${last.date}). Overflow rolled to next day at ${startTime}.`;
+  }
+
+  return { scheduledTimes, warning, error: null, dayBreakdown };
 }
 
 /**
- * Parse a date string (YYYY-MM-DD HH:MM) in a specific timezone and return UTC Date
+ * Parse a date string (YYYY-MM-DD HH:MM) in a specific timezone and return UTC Date.
+ * Locale- and DST-safe via Intl.DateTimeFormat.formatToParts.
  */
 function parseDateInTimezone(dateStr, timezone) {
-  // dateStr format: "2026-01-25 17:00"
   const [datePart, timePart] = dateStr.split(' ');
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute] = timePart.split(':').map(Number);
 
-  // Create a reference date to get the timezone offset
-  // We use the target date at noon to avoid DST edge cases
-  const refDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  // Initial guess: interpret the wall-clock as UTC.
+  let guess = Date.UTC(year, month - 1, day, hour, minute, 0);
 
-  // Get the timezone offset by comparing UTC to the timezone representation
-  const utcString = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
-  const tzString = refDate.toLocaleString('en-US', { timeZone: timezone });
-
-  const utcParsed = new Date(utcString);
-  const tzParsed = new Date(tzString);
-
-  // Offset in milliseconds (positive means timezone is behind UTC)
-  const offsetMs = utcParsed.getTime() - tzParsed.getTime();
-
-  // Create UTC date for the desired time, then adjust by offset
-  // If user wants 17:00 ET, and ET is UTC-5, we need 22:00 UTC
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-  return new Date(utcDate.getTime() + offsetMs);
+  // Iterate up to 2 times to converge around DST boundaries.
+  for (let i = 0; i < 2; i++) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).formatToParts(new Date(guess));
+    const p = {};
+    for (const part of parts) if (part.type !== 'literal') p[part.type] = part.value;
+    let tzHour = parseInt(p.hour, 10);
+    if (tzHour === 24) tzHour = 0; // Intl sometimes yields 24 for midnight
+    const asTzMs = Date.UTC(
+      parseInt(p.year, 10),
+      parseInt(p.month, 10) - 1,
+      parseInt(p.day, 10),
+      tzHour,
+      parseInt(p.minute, 10),
+      parseInt(p.second, 10)
+    );
+    // asTzMs = what wall-clock the "guess" UTC moment shows in tz.
+    // Target wall-clock ms (as if UTC) = Date.UTC(y,mo-1,d,h,mi).
+    const target = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const diff = target - asTzMs;
+    if (Math.abs(diff) < 60000) break; // within 1 min — tolerates half-hour DST zones
+    guess += diff;
+  }
+  return new Date(guess);
 }
 
 /**
@@ -2122,6 +2290,20 @@ async function scheduleEmails() {
       scheduleLog(`Filtering by email: ${scheduleJob.settings.filterEmail}`);
     }
 
+    // Dedup guard: exclude drafts whose company is already in-flight as pending in this process.
+    const inFlight = new Set(
+      (scheduleJob.scheduledEmails || [])
+        .filter(e => e.status === 'pending' && e.ceoEmail)
+        .map(e => e.ceoEmail.toLowerCase())
+    );
+    if (inFlight.size > 0) {
+      const before = draftedEmails.length;
+      draftedEmails = draftedEmails.filter(e => !inFlight.has((e.ceoEmail || '').toLowerCase()));
+      if (before !== draftedEmails.length) {
+        scheduleLog(`[DEDUP] Skipped ${before - draftedEmails.length} email(s) already pending in current job`);
+      }
+    }
+
     if (draftedEmails.length === 0) {
       scheduleLog('No drafted emails found (check filter if set)');
       scheduleJob.running = false;
@@ -2133,11 +2315,18 @@ async function scheduleEmails() {
     scheduleJob.total += draftedEmails.length;
 
     // Calculate schedule times
-    const { scheduledTimes, warning } = calculateScheduleTimes(draftedEmails.length, scheduleJob.settings);
+    const { scheduledTimes, warning, dayBreakdown } = calculateScheduleTimes(draftedEmails.length, scheduleJob.settings);
 
     if (warning) {
       scheduleLog(`Warning: ${warning}`);
     }
+    if (Array.isArray(dayBreakdown) && dayBreakdown.length > 1) {
+      scheduleLog(`[OVERFLOW] Schedule spans ${dayBreakdown.length} days — subsequent days start at ${scheduleJob.settings.startTime}`);
+      for (const d of dayBreakdown) {
+        scheduleLog(`  • ${d.date}: ${d.count} emails`);
+      }
+    }
+    scheduleJob.lastDayBreakdown = dayBreakdown || [];
 
     // Schedule each email
     for (let i = 0; i < scheduledTimes.length; i++) {
@@ -2794,7 +2983,20 @@ async function processSelectedRows(rowNumbers, deliveryMode) {
 }
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
+const HOST = process.env.HOST || '127.0.0.1';
+
+// Harden permissions on sensitive files at startup (idempotent, best-effort).
+(function hardenSensitiveFilePerms() {
+  const sensitive = ['credentials.json', 'gmail-credentials.json', 'gmail-token.json', 'settings.json', '.env'];
+  for (const name of sensitive) {
+    const p = join(PROJECT_ROOT, name);
+    if (existsSync(p)) {
+      try { chmodSync(p, 0o600); } catch (e) { /* non-POSIX or perms issue — ignore */ }
+    }
+  }
+})();
+
+app.listen(PORT, HOST, async () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║          TRUSTPILOT OUTREACH AUTOMATION                       ║

@@ -542,6 +542,18 @@
       background: rgba(58,129,246,0.12);
       color: var(--chart-2);
     }
+    .cs-option.cs-option-disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+    .cs-option.cs-option-disabled:hover {
+      background: transparent;
+    }
+    @keyframes tzPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
     .cs-group-label {
       padding: 8px 10px 4px;
       font-size: 11px;
@@ -1629,7 +1641,7 @@
                 </div>
               </div>
               <div id="scheduleSettingsFields">
-                <div class="field-row">
+                <div class="field-row" style="align-items: flex-start;">
                   <div class="field">
                     <label class="field-label">Timezone</label>
                     <div class="custom-select" id="deliveryTimezoneSelect" data-value="Europe/Madrid">
@@ -1654,6 +1666,10 @@
                         <div class="cs-option" data-value="Asia/Singapore">Singapore (SGT)</div>
                         <div class="cs-option" data-value="Asia/Tokyo">Tokyo (JST)</div>
                       </div>
+                    </div>
+                    <div class="tz-live-clock" id="tzLiveClock" style="margin-top: 6px; font-size: 11px; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px;">
+                      <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--chart-2); display: inline-block; animation: tzPulse 2s infinite;"></span>
+                      <span>Current time: <span id="tzLiveTime" style="color: var(--foreground); font-weight: 500; font-variant-numeric: tabular-nums;">--:--</span></span>
                     </div>
                   </div>
                   <div class="field">
@@ -1688,7 +1704,13 @@
                   </div>
                 </div>
               </div>
-              <div class="btn-row">
+              <div style="margin-top: 14px; padding: 10px 12px; background: rgba(58,129,246,0.06); border-left: 2px solid var(--chart-2); border-radius: var(--radius-xs); font-size: 11px; color: var(--muted-foreground); line-height: 1.5;">
+                <strong style="color: var(--foreground);">Overflow behavior.</strong>
+                If the queued volume can't fit within today's window (start–end, at chosen intervals),
+                remaining emails automatically roll to the next day at your configured start time.
+                Schedule can span up to 14 days; anything beyond is reported as dropped.
+              </div>
+              <div class="btn-row" style="margin-top: 12px;">
                 <button class="btn btn-primary btn-sm" onclick="saveDeliverySettings()">Save</button>
               </div>
             </div>
@@ -1908,7 +1930,7 @@
       if (!el) return;
       const dropdown = el._dropdown || el.querySelector('.custom-select-dropdown');
       dropdown.innerHTML = options.map(o =>
-        `<div class="cs-option${o.value === selectedValue ? ' selected' : ''}" data-value="${esc(o.value)}">${esc(o.label)}</div>`
+        `<div class="cs-option${o.value === selectedValue ? ' selected' : ''}${o.disabled ? ' cs-option-disabled' : ''}" data-value="${esc(o.value)}"${o.disabled ? ' data-disabled="true"' : ''}>${esc(o.label)}</div>`
       ).join('');
       if (selectedValue) {
         el.dataset.value = selectedValue;
@@ -1925,6 +1947,7 @@
       (dropdown || el).querySelectorAll('.cs-option').forEach(opt => {
         opt.onclick = (e) => {
           e.stopPropagation();
+          if (opt.dataset.disabled === 'true') return;
           csSetValue(el.id, opt.dataset.value);
           _csClose(el);
           el._onChange && el._onChange(opt.dataset.value);
@@ -1987,7 +2010,21 @@
     });
 
     // ============ POPULATE TIME DROPDOWNS ============
-    (function populateTimeDropdowns() {
+    function getNowInTimezone(tz) {
+      try {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(new Date());
+        const h = +parts.find(p => p.type === 'hour').value;
+        const m = +parts.find(p => p.type === 'minute').value;
+        return { hours: h, minutes: m, mins: h * 60 + m, hhmm: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') };
+      } catch (e) {
+        const d = new Date();
+        return { hours: d.getHours(), minutes: d.getMinutes(), mins: d.getHours()*60+d.getMinutes(), hhmm: '--:--' };
+      }
+    }
+
+    function _buildHourOptions() {
       const hours = [];
       for (let h = 0; h < 24; h++) {
         for (let m = 0; m < 60; m += 30) {
@@ -1995,9 +2032,56 @@
           hours.push({ value: val, label: val });
         }
       }
-      csSetOptions('deliveryStartTimeSelect', hours, '09:00');
-      csSetOptions('deliveryEndTimeSelect', hours, '17:00');
-    })();
+      return hours;
+    }
+
+    function rebuildTimeDropdowns() {
+      const tz = csGetValue('deliveryTimezoneSelect') || 'Europe/Madrid';
+      const now = getNowInTimezone(tz);
+      const currentStart = csGetValue('deliveryStartTimeSelect') || '09:00';
+      const [sh, sm] = currentStart.split(':').map(Number);
+      const startMins = sh * 60 + sm;
+
+      const startOptions = _buildHourOptions().map(o => {
+        const [h, m] = o.value.split(':').map(Number);
+        return { ...o, disabled: (h * 60 + m) < now.mins };
+      });
+      const endOptions = _buildHourOptions().map(o => {
+        const [h, m] = o.value.split(':').map(Number);
+        // Disallow only exact match (overnight windows are valid)
+        return { ...o, disabled: (h * 60 + m) === startMins };
+      });
+      csSetOptions('deliveryStartTimeSelect', startOptions, currentStart);
+      csSetOptions('deliveryEndTimeSelect', endOptions, csGetValue('deliveryEndTimeSelect') || '17:00');
+    }
+
+    let _lastClockHour = -1;
+    let _lastClockMin = -1;
+    function updateTzClock() {
+      const tz = csGetValue('deliveryTimezoneSelect') || 'Europe/Madrid';
+      const now = getNowInTimezone(tz);
+      const el = document.getElementById('tzLiveTime');
+      if (el) el.textContent = now.hhmm;
+      if (now.hours !== _lastClockHour || Math.floor(now.minutes / 30) !== Math.floor(_lastClockMin / 30)) {
+        _lastClockHour = now.hours;
+        _lastClockMin = now.minutes;
+        rebuildTimeDropdowns();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initial population (no disabled state until DOMContentLoaded settles custom-select wiring)
+      csSetOptions('deliveryStartTimeSelect', _buildHourOptions(), '09:00');
+      csSetOptions('deliveryEndTimeSelect', _buildHourOptions(), '17:00');
+      // Rebuild with disabled state based on current time
+      setTimeout(() => {
+        rebuildTimeDropdowns();
+        updateTzClock();
+        csOnChange('deliveryTimezoneSelect', () => { _lastClockHour = -1; updateTzClock(); });
+        csOnChange('deliveryStartTimeSelect', () => rebuildTimeDropdowns());
+        setInterval(updateTzClock, 1000);
+      }, 0);
+    });
 
     // ============ PAGE NAVIGATION ============
     function showPage(page) {
@@ -2122,6 +2206,11 @@
           // Sync internal state and chip to saved default
           _runDeliveryMode = savedMode;
           updateDeliveryModeChip();
+          // Re-apply disabled state now that saved values are in place
+          if (typeof rebuildTimeDropdowns === 'function') {
+            rebuildTimeDropdowns();
+            updateTzClock();
+          }
         }
 
       } catch (err) {
@@ -2443,6 +2532,39 @@
       const minInterval = parseInt(document.getElementById('deliveryMinInterval').value) || 15;
       const maxInterval = parseInt(document.getElementById('deliveryMaxInterval').value) || 25;
       const badge = document.getElementById('deliverySettingsStatus');
+
+      // Validate: start not in past (in selected timezone), end > start
+      const now = getNowInTimezone(timezone);
+      const [sh, sm] = startTime.split(':').map(Number);
+      const [eh, em] = endTime.split(':').map(Number);
+      const startMins = sh * 60 + sm;
+      const endMins = eh * 60 + em;
+      if (startMins < now.mins) {
+        badge.textContent = 'Start already passed';
+        badge.className = 'badge badge-error';
+        showToast(`Start time ${startTime} is before current time in ${timezone} (${now.hhmm})`, 'error');
+        return;
+      }
+      if (endMins === startMins) {
+        badge.textContent = 'End must differ from start';
+        badge.className = 'badge badge-error';
+        showToast('End time cannot equal start time', 'error');
+        return;
+      }
+      // end < start is allowed = overnight window
+      if (minInterval > maxInterval) {
+        badge.textContent = 'Min > Max interval';
+        badge.className = 'badge badge-error';
+        showToast(`Min interval (${minInterval}) must be ≤ Max interval (${maxInterval})`, 'error');
+        return;
+      }
+      if (minInterval < 1 || maxInterval < 1) {
+        badge.textContent = 'Interval must be ≥ 1';
+        badge.className = 'badge badge-error';
+        showToast('Intervals must be at least 1 minute', 'error');
+        return;
+      }
+
       badge.textContent = 'Saving...';
       badge.className = 'badge badge-warning';
       try {

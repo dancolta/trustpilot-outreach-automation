@@ -92,9 +92,9 @@ async function authorizeUser(oauth2Client) {
   console.log(authUrl);
   console.log('\n========================================\n');
 
-  // Open browser
-  const { exec } = await import('child_process');
-  exec(`open "${authUrl}"`);
+  // Open browser — use spawn with arg array to avoid shell interpolation
+  const { spawn } = await import('child_process');
+  try { spawn('open', [authUrl], { detached: true, stdio: 'ignore' }).unref(); } catch (e) { /* non-mac or open unavailable */ }
 
   // Start local server to receive callback
   const code = await waitForAuthCode();
