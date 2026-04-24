@@ -1216,12 +1216,31 @@ app.post('/api/redraft', async (req, res) => {
       return res.status(400).json({ error: 'No negative reviews found on rescrape' });
     }
 
+    // Load active outreach config
+    let outreachConfig = {};
+    try {
+      const s = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8'));
+      const defaults = getDefaultOutreachProfile();
+      const profile = {
+        activePreset: s.outreachProfile?.activePreset || 'ecommerce-ops',
+        presets: { ...defaults.presets, ...(s.outreachProfile?.presets || {}) }
+      };
+      const activePreset = profile.presets[profile.activePreset] || defaults.presets['ecommerce-ops'];
+      outreachConfig = {
+        painPoints: activePreset.painPoints,
+        offer: activePreset.offer,
+        tone: activePreset.tone,
+        reviewFocus: activePreset.reviewFocus
+      };
+    } catch (e) { /* use defaults */ }
+
     // Regenerate email
     const ceoName = `${lead.firstName} ${lead.lastName}`.trim();
     const emailResult = await generateEmail({
       ceoName,
       reviews,
-      company: lead.company
+      company: lead.company,
+      config: outreachConfig
     });
 
     const variantA = emailResult?.variants?.A?.email || (typeof emailResult === 'string' ? emailResult : '');
@@ -1297,6 +1316,11 @@ app.post('/api/start', async (req, res) => {
 
   if (currentJob.running) {
     return res.status(400).json({ error: 'Job already running' });
+  }
+
+  // Reject explicitly empty selection
+  if (rows && Array.isArray(rows) && rows.length === 0) {
+    return res.status(400).json({ error: 'No leads selected' });
   }
 
   // If specific rows provided, use them; otherwise fall back to range
