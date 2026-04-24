@@ -1,7 +1,9 @@
 /**
- * V13 Email Generation - A/B Testing Framework
+ * V14 Email Generation - A/B Testing Framework with Universal Config
  *
- * Generates 3 distinct variants for each email to test which converts best
+ * Generates 3 distinct variants for each email to test which converts best.
+ * Now accepts an outreach config (painPoints, offer, tone, reviewFocus) so
+ * the same framework works for any industry — not just e-commerce.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -23,59 +25,61 @@ function getClient() {
 }
 
 // 3 A/B Test Variants - Each with distinct conversion strategy
+// These are structural/conversion frameworks — industry-agnostic
 const AB_TEST_VARIANTS = {
   A: {
     name: 'Direct Value',
     strategy: 'Lead with specific insight/pattern, offer direct value',
-    structure: 'Pattern observation → Specific insight → Quick value offer',
-    example: `Sarah,
-
-12 delivery complaints in 60 days. Concentrated in Nov-Dec.
-
-<b><i>"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."</i></b>
-
-Peak season fulfillment. I've seen 3 specific fixes that cut this 70%.
-
-Want the breakdown?`
+    structure: 'Pattern observation → Specific insight → Quick value offer'
   },
 
   B: {
     name: 'Curiosity Gap',
     strategy: 'Create curiosity through specific questions and pattern observation',
-    structure: 'Intriguing question → Data point → Pattern insight → Follow-up question',
-    example: `Sarah,
-
-What changed between October (4.2★) and December (1.8★)?
-
-<b><i>"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."</i></b>
-
-18 complaints mention Black Friday week specifically.
-
-Seeing the same pattern on your end?`
+    structure: 'Intriguing question → Data point → Pattern insight → Follow-up question'
   },
 
   C: {
     name: 'Peer Comparison',
     strategy: 'Non-judgmental peer observation, collaborative tone',
-    structure: 'Observation → Relatable experience → Collaborative question',
-    example: `Sarah,
-
-Noticed 18 delivery issues cluster around holiday weeks.
-
-<b><i>"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."</i></b>
-
-Same thing hit us during peak season - took 3 tries to get it right.
-
-What's your current approach during spikes?`
+    structure: 'Observation → Relatable experience → Collaborative question'
   }
 };
 
 /**
- * Generate email using specific A/B test variant
+ * Map tone value to a prompt instruction
  */
-async function generateVariant(variant, { firstName, reviews, company, reviewsText }) {
+function getToneInstruction(tone) {
+  switch (tone) {
+    case 'professional':
+      return 'Business-peer tone. Measured, credible, respectful. No slang.';
+    case 'direct':
+      return 'Blunt, numbers-first. Short punchy sentences. No pleasantries.';
+    case 'casual':
+    default:
+      return 'Natural, conversational. Sound like a real person reaching out. No salesy language.';
+  }
+}
+
+/**
+ * Generate email using specific A/B test variant + outreach config
+ */
+async function generateVariant(variant, { firstName, reviews, company, reviewsText }, config = {}) {
   const client = getClient();
   const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  const { painPoints, offer, tone, reviewFocus } = config;
+  const toneInstruction = getToneInstruction(tone);
+
+  // Build the review focus list from config or fall back to generic operational issues
+  const focusAreas = reviewFocus && reviewFocus.length > 0
+    ? reviewFocus.map(f => `- ${f}`).join('\n')
+    : `- Delivery timing problems\n- Wrong/damaged items\n- Tracking/communication gaps\n- Fulfillment errors\n- Customer service response time`;
+
+  // Build sender context section if config is provided
+  const senderContext = (painPoints || offer)
+    ? `\n# YOUR SERVICE CONTEXT\nWhat you help with: ${painPoints || 'operational issues visible in their reviews'}\nWhat you offer: ${offer || 'a targeted solution'}\nUse this ONLY to frame the CTA naturally — do not make it the email\'s focus.\n`
+    : '';
 
   const prompt = `You are writing a cold email following the "${variant.name}" conversion strategy.
 
@@ -84,10 +88,7 @@ ${variant.strategy}
 
 # STRUCTURE
 ${variant.structure}
-
-# EXAMPLE (for style reference only - do NOT copy)
-${variant.example}
-
+${senderContext}
 # REVIEW DATA
 Company: ${company}
 CEO: ${firstName}
@@ -97,14 +98,15 @@ ${reviewsText}
 # CRITICAL INSTRUCTIONS
 
 1. ANALYZE the reviews and identify:
-   - Dominant issue (delivery, refund, wrong items, etc.)
+   - Dominant issue that matches these focus areas:
+${focusAreas}
    - Specific count and timeframe
    - Most compelling quote with timeline/specifics
-   - Any patterns (seasonal, specific products, etc.)
+   - Any patterns (seasonal, specific products, spikes, etc.)
+   - IMPORTANT: Only reference reviews from the past 6 months. Do NOT cite older reviews.
 
 2. CREATE A COMPLETELY UNIQUE EMAIL:
-   - DO NOT copy phrases from the example
-   - DO NOT reuse common phrases like "I've tackled similar gaps"
+   - DO NOT copy any boilerplate phrases or templates
    - Generate fresh, natural language each time
    - Make it sound like a real person wrote it spontaneously
 
@@ -129,13 +131,11 @@ ${reviewsText}
    - NO em dashes (—) - use periods, commas, or "and" instead
    - Quote wrapped in <b><i>"quote"</i></b>
    - CRITICAL: Put the final CTA question on its own line (add blank line before it)
-   - Subject: 2-3 lowercase words (e.g., "delivery pattern", "peak season", "refund timing")
+   - Subject: 2-3 lowercase words that reflect the actual issue found (not generic)
 
 5. TONE:
-   - Natural, conversational
-   - No salesy language
+   - ${toneInstruction}
    - No generic consultant speak
-   - Sound like a peer reaching out
    - Keep it punchy and direct
 
 # OUTPUT FORMAT
@@ -158,22 +158,33 @@ Generate now with completely fresh language:`;
  * @param {Array} params.reviews - Array of review objects
  * @param {string} params.company - Company name
  * @param {string} params.variant - Optional: 'A', 'B', or 'C' to generate single variant
+ * @param {Object} params.config - Outreach config: { painPoints, offer, tone, reviewFocus }
  * @returns {Promise<Object|string>} - All 3 variants or single variant
  */
-export async function generateEmail({ ceoName, reviews, company, variant = null }) {
+export async function generateEmail({ ceoName, reviews, company, variant = null, config = {} }) {
   const firstName = ceoName ? ceoName.split(' ')[0] : 'there';
 
-  // Format reviews for analysis
-  const reviewsText = reviews
+  // Filter to reviews from the past 6 months only, then format for analysis
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const recentReviews = reviews.filter(r => {
+    if (!r.date) return true; // keep reviews without dates as fallback
+    const d = new Date(r.date);
+    return !isNaN(d.getTime()) && d >= sixMonthsAgo;
+  });
+
+  const reviewsToUse = recentReviews.length > 0 ? recentReviews : reviews;
+  const reviewsText = reviewsToUse
     .slice(0, 10)
-    .map((r, i) => `${i + 1}. [${r.rating}★] "${r.title}" - ${r.text}`)
+    .map((r, i) => `${i + 1}. [${r.rating}★] ${r.date ? `(${r.date}) ` : ''}"${r.title}" - ${r.text}`)
     .join('\n');
 
   const context = { firstName, reviews, company, reviewsText };
 
   // Generate single variant if specified
   if (variant && AB_TEST_VARIANTS[variant]) {
-    const email = await generateVariant(AB_TEST_VARIANTS[variant], context);
+    const email = await generateVariant(AB_TEST_VARIANTS[variant], context, config);
     return email;
   }
 
@@ -181,9 +192,9 @@ export async function generateEmail({ ceoName, reviews, company, variant = null 
   console.log(`  Generating 3 A/B test variants...`);
 
   const [variantA, variantB, variantC] = await Promise.all([
-    generateVariant(AB_TEST_VARIANTS.A, context),
-    generateVariant(AB_TEST_VARIANTS.B, context),
-    generateVariant(AB_TEST_VARIANTS.C, context)
+    generateVariant(AB_TEST_VARIANTS.A, context, config),
+    generateVariant(AB_TEST_VARIANTS.B, context, config),
+    generateVariant(AB_TEST_VARIANTS.C, context, config)
   ]);
 
   return {
@@ -207,9 +218,13 @@ export async function generateEmail({ ceoName, reviews, company, variant = null 
 }
 
 /**
- * Analyze reviews for operational issues
+ * Analyze reviews for operational issues matching the provided config
+ *
+ * @param {Array} reviews
+ * @param {string} company
+ * @param {Object} config - { painPoints, offer, tone, reviewFocus }
  */
-export async function analyzeReviewsWithAI(reviews, company) {
+export async function analyzeReviewsWithAI(reviews, company, config = {}) {
   if (!reviews || reviews.length === 0) {
     return 'No reviews to analyze';
   }
@@ -221,6 +236,11 @@ export async function analyzeReviewsWithAI(reviews, company) {
     .map((r, i) => `${i + 1}. [${r.rating}★] "${r.title}" - ${r.text}`)
     .join('\n');
 
+  const { reviewFocus } = config;
+  const focusAreas = reviewFocus && reviewFocus.length > 0
+    ? reviewFocus.map(f => `- ${f}`).join('\n')
+    : `- Delivery timing problems\n- Wrong/damaged items\n- Tracking/communication gaps\n- Fulfillment errors\n- Customer service response time`;
+
   const prompt = `Analyze these Trustpilot reviews for ${company}.
 
 REVIEWS:
@@ -228,12 +248,8 @@ ${reviewText}
 
 Identify the 2-3 most common OPERATIONAL ISSUES (not emotional complaints).
 
-Focus on:
-- Delivery timing problems
-- Wrong/damaged items
-- Tracking/communication gaps
-- Fulfillment errors
-- Customer service response time
+Focus specifically on:
+${focusAreas}
 
 Frame as operational patterns, not technical jargon:
 - GOOD: "Late deliveries, averaging 2+ weeks"

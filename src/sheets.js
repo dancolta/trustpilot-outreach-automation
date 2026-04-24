@@ -79,7 +79,7 @@ export async function readAllLeads(startRow = 2) {
       draftId: (row[8] || '').trim(),
       rowNumber: startRow + index,
     }))
-    .filter(row => row.company);
+    .filter(row => row.email || row.company || row.firstName || row.lastName);
 }
 
 /**
@@ -313,7 +313,7 @@ export async function writeOutreach(data) {
   });
 
   const existingCompanies = (existing.data.values || []).flat();
-  const rowIndex = existingCompanies.findIndex(c => c === data.company);
+  const rowIndex = existingCompanies.findIndex(c => (c || '').trim() === (data.company || '').trim());
 
   // Serialize generated email to JSON string if it's an object (A/B variants)
   const emailValue = typeof data.generatedEmail === 'object'
@@ -433,7 +433,7 @@ export async function updateStatus(company, status) {
   });
 
   const existingCompanies = (existing.data.values || []).flat();
-  const rowIndex = existingCompanies.findIndex(c => c === company);
+  const rowIndex = existingCompanies.findIndex(c => (c || '').trim() === (company || '').trim());
 
   if (rowIndex > 0) {
     await sheets.spreadsheets.values.update({
@@ -488,46 +488,50 @@ export async function updateScheduledTime(company, scheduledTime, timezone) {
   });
 
   const existingCompanies = (existing.data.values || []).flat();
-  const rowIndex = existingCompanies.findIndex(c => c === company);
+  const rowIndex = existingCompanies.findIndex(c => (c || '').trim() === (company || '').trim());
 
-  if (rowIndex > 0) {
-    // Format the scheduled time for display
-    const scheduledDate = new Date(scheduledTime);
-    const formattedTime = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(scheduledDate);
+  if (rowIndex <= 0) {
+    console.warn(`[updateScheduledTime] Company not found in Emails tab: "${company}" (${existingCompanies.length} rows checked)`);
+    return;
+  }
 
-    // First, check if column H exists (Scheduled Time), if not we'll add the header
-    const headers = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `'${tabName}'!A1:H1`,
-    });
+  // Format the scheduled time for display
+  const scheduledDate = new Date(scheduledTime);
+  const formattedTime = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).format(scheduledDate);
 
-    const headerRow = headers.data.values?.[0] || [];
-    if (headerRow.length < 8 || headerRow[7] !== 'Scheduled Time') {
-      // Add the header for column H
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `'${tabName}'!H1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [['Scheduled Time']] }
-      });
-    }
+  // First, check if column H exists (Scheduled Time), if not we'll add the header
+  const headers = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${tabName}'!A1:H1`,
+  });
 
-    // Update the scheduled time in column H
+  const headerRow = headers.data.values?.[0] || [];
+  if (headerRow.length < 8 || headerRow[7] !== 'Scheduled Time') {
+    // Add the header for column H
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${tabName}'!H${rowIndex + 1}`,
+      range: `'${tabName}'!H1`,
       valueInputOption: 'RAW',
-      requestBody: { values: [[formattedTime]] }
+      requestBody: { values: [['Scheduled Time']] }
     });
   }
+
+  // Update the scheduled time in column H
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${tabName}'!H${rowIndex + 1}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[formattedTime]] }
+  });
+  console.log(`[updateScheduledTime] Written to row ${rowIndex + 1} for "${company}": ${formattedTime}`);
 }
 
 /**
@@ -545,7 +549,7 @@ export async function clearScheduledTime(company) {
   });
 
   const existingCompanies = (existing.data.values || []).flat();
-  const rowIndex = existingCompanies.findIndex(c => c === company);
+  const rowIndex = existingCompanies.findIndex(c => (c || '').trim() === (company || '').trim());
 
   if (rowIndex > 0) {
     // Clear the scheduled time in column H
@@ -562,6 +566,35 @@ export async function clearScheduledTime(company) {
  * Clear all lead rows from Sheet1 (A2:I), used before a replace-mode import
  * @returns {number} Number of rows cleared
  */
+/**
+ * Delete a single lead row from Sheet1 by row number
+ */
+export async function deleteLeadRow(rowNumber) {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  // Get Sheet1's sheetId
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet1 = spreadsheet.data.sheets.find(s => s.properties.title === 'Sheet1');
+  const sheetId = sheet1 ? sheet1.properties.sheetId : 0;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: rowNumber - 1, // 0-indexed
+            endIndex: rowNumber
+          }
+        }
+      }]
+    }
+  });
+}
+
 export async function clearLeadsFromSheet() {
   const sheets = await getClient();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
