@@ -2836,6 +2836,9 @@
       group.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentPage = 1;
+      // Reset selection state when switching filters
+      window._selectAllMode = false;
+      document.getElementById('selAll')?.classList.remove('active');
       applyLeadFilters();
     }
 
@@ -3024,9 +3027,9 @@
     }
 
     function getSelectedRows() {
-      // If "Select All" mode is active, return all unprocessed lead rows
+      // If "Select All" mode is active, return rows from the current filtered view
       if (window._selectAllMode) {
-        return allLeads.filter(l => !isProcessed(l.status)).map(l => l.rowNumber);
+        return getFilteredLeads().filter(l => !isProcessed(l.status)).map(l => l.rowNumber);
       }
       return [...document.querySelectorAll('.lead-check:checked')].map(cb => parseInt(cb.value));
     }
@@ -3090,7 +3093,7 @@
       const headerCb = document.getElementById('selectAll');
       if (headerCb) headerCb.checked = true;
       window._selectAllMode = true;
-      const total = allLeads.filter(l => !isProcessed(l.status)).length;
+      const total = getFilteredLeads().filter(l => !isProcessed(l.status)).length;
       document.getElementById('selectedCount').textContent = total + ' selected (all)';
     }
 
