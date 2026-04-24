@@ -25,37 +25,6 @@ async function getClient() {
 }
 
 /**
- * Find the first row in Sheet1 where Column A (Channel) is empty
- * This indicates an unprocessed lead
- * @param {number} searchStartRow - Row to start searching from (default: 2 to skip header)
- * @returns {number} Row number of first unprocessed row, or searchStartRow if none found
- */
-export async function findFirstUnprocessedRow(searchStartRow = 2) {
-  const sheets = await getClient();
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-
-  // Get Column A values starting from searchStartRow
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `Sheet1!A${searchStartRow}:A`,
-  });
-
-  const values = response.data.values || [];
-
-  // Find first empty cell in Column A
-  for (let i = 0; i < values.length; i++) {
-    const cellValue = (values[i]?.[0] || '').toString().trim().toLowerCase();
-    // Empty or no "email" selected means unprocessed
-    if (!cellValue || cellValue === '') {
-      return searchStartRow + i;
-    }
-  }
-
-  // If no empty cells found, return the row after the last row
-  return searchStartRow + values.length;
-}
-
-/**
  * Read companies from Sheet1 starting from a specific row
  * Columns: C=First Name, D=Last Name, F=Company Name, G=Email, N=Website
  */
@@ -535,5 +504,5 @@ export async function getAllEmails() {
     status: (row[6] || '').trim(),
     scheduledTime: (row[7] || '').trim(),
     rowNumber: index + 2
-  })).filter(row => row.company && row.ceoEmail && row.email);
+  })).filter(row => row.company && row.email);
 }

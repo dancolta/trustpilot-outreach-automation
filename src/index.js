@@ -2,7 +2,7 @@
 
 import 'dotenv/config';
 import { readCompanies, writeOutreach, markAsProcessed } from './sheets.js';
-import { findTrustpilotPage, scrapeReviews, extractPainPoints } from './trustpilot.js';
+import { findAndScrape } from './trustpilot.js';
 import { generateEmail, analyzeReviewsWithAI } from './emailGen.js';
 
 const BANNER = `
@@ -21,9 +21,9 @@ async function processCompany(company) {
   console.log(`  Website: ${company.website}`);
 
   try {
-    // Step 1: Find Trustpilot page
-    console.log('  [1/5] Searching for Trustpilot page...');
-    const trustpilot = await findTrustpilotPage(company.website, company.company);
+    // Step 1+2: Find Trustpilot page and scrape reviews in a single browser session
+    console.log('  [1/5] Searching Trustpilot and scraping reviews...');
+    const { trustpilot, reviews } = await findAndScrape(company.website, company.company, [1, 2], 20);
 
     if (!trustpilot.found) {
       console.log('  ✗ No Trustpilot page found');
@@ -40,10 +40,6 @@ async function processCompany(company) {
     }
 
     console.log(`  ✓ Found: ${trustpilot.url}`);
-
-    // Step 2: Scrape negative reviews
-    console.log('  [2/5] Scraping 1-2 star reviews...');
-    const reviews = await scrapeReviews(trustpilot.url, [1, 2], 20);
     console.log(`  Found ${reviews.length} negative reviews`);
 
     if (reviews.length === 0) {
@@ -59,20 +55,13 @@ async function processCompany(company) {
       return { success: true, skipped: true, reason: 'No negative reviews' };
     }
 
-    // Step 3: Extract/analyze pain points
+    // Step 3: Analyze pain points with AI
     console.log('  [3/5] Analyzing pain points...');
-    let painPoints = extractPainPoints(reviews);
-
-    // Use AI for deeper analysis
-    console.log('  [3/5] Running AI analysis...');
-    const aiPainPoints = await analyzeReviewsWithAI(reviews, company.company);
-    if (aiPainPoints && !aiPainPoints.includes('Unable to analyze')) {
-      painPoints = aiPainPoints;
-    }
+    const painPoints = await analyzeReviewsWithAI(reviews, company.company);
     console.log(`  Pain points: ${painPoints}`);
 
     // Step 4: Generate personalized email with A/B testing
-    console.log('  [4/5] Generating outreach email (A/B testing)...');
+    console.log('  [4/4] Generating outreach email (A/B testing)...');
 
     // Randomly select variant A, B, or C for A/B testing
     const variants = ['A', 'B', 'C'];
@@ -87,7 +76,7 @@ async function processCompany(company) {
 
     console.log(`  ✓ Email generated (Variant ${selectedVariant})`);
 
-    // Step 5: Write to Google Sheet
+    // Step 5: Write to Google Sheet (kept as 5 for UX consistency)
     console.log('  [5/5] Writing to Emails tab...');
     await writeOutreach({
       ceoName: company.ceoName,
