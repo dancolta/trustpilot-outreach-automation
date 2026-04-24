@@ -2012,10 +2012,22 @@ app.post('/api/schedule/cancel', async (req, res) => {
     // Find the scheduled email index
     const index = scheduleJob.scheduledEmails.findIndex(e => e.company === company);
 
+    // Helper: revert Sheet1 status (column A) so the lead returns to the Ready filter
+    async function revertSheet1Status() {
+      try {
+        const leads = await readAllLeads(2);
+        const match = leads.find(l => (l.company || '').trim() === (company || '').trim());
+        if (match) await markAsProcessed(match.rowNumber, 'Drafted');
+      } catch (e) {
+        console.error(`[CANCEL] Sheet1 status revert failed for ${company}:`, e);
+      }
+    }
+
     if (index === -1) {
       // Not in memory, but might be in sheet - just update sheet
       await updateStatus(company, 'Drafted');
       await clearScheduledTime(company);
+      await revertSheet1Status();
       scheduleLog(`Cancelled (sheet only): ${company}`);
       return res.json({ message: `Cancelled scheduling for ${company}` });
     }
@@ -2038,6 +2050,7 @@ app.post('/api/schedule/cancel', async (req, res) => {
     // Update sheet: revert status to "Drafted" and clear scheduled time
     await updateStatus(company, 'Drafted');
     await clearScheduledTime(company);
+    await revertSheet1Status();
 
     scheduleLog(`Cancelled: ${company}`);
     res.json({ message: `Cancelled scheduling for ${company}` });
