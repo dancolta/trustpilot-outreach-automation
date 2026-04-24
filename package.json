@@ -18,7 +18,9 @@
     "express": "^4.22.1",
     "googleapis": "^144.0.0",
     "multer": "^2.1.1",
-    "puppeteer": "^23.6.0"
+    "puppeteer": "^23.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "keywords": [
     "trustpilot",

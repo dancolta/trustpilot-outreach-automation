@@ -1,10 +1,30 @@
-import puppeteer from 'puppeteer';
+import puppeteerExtra from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-const BROWSER_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
-const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+puppeteerExtra.use(StealthPlugin());
+
+const BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-blink-features=AutomationControlled',
+  '--disable-features=IsolateOrigins,site-per-process',
+  '--lang=en-US,en',
+];
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 function launchBrowser() {
-  return puppeteer.launch({ headless: true, args: BROWSER_ARGS });
+  return puppeteerExtra.launch({
+    headless: true,
+    args: BROWSER_ARGS,
+    defaultViewport: { width: 1440, height: 900 },
+  });
+}
+
+async function primePage(page) {
+  await page.setUserAgent(USER_AGENT);
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'en-US,en;q=0.9',
+  });
 }
 
 /**
@@ -74,10 +94,61 @@ async function scrapeOverallRating(page) {
   }
 }
 
+async function _googleFallback(page, companyName) {
+  try {
+    const q = encodeURIComponent(`site:trustpilot.com/review ${companyName}`);
+    const url = `https://www.google.com/search?q=${q}&hl=en`;
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const href = await page.evaluate(() => {
+      const anchors = Array.from(document.querySelectorAll('a'));
+      for (const a of anchors) {
+        const h = a.href || '';
+        const m = h.match(/https?:\/\/[^\/]*trustpilot\.com\/review\/[^\s?&#"']+/);
+        if (m) return m[0];
+      }
+      return null;
+    });
+    return href;
+  } catch {
+    return null;
+  }
+}
+
+async function _warmUp(page) {
+  // Trustpilot uses AWS WAF: first request returns 403 and sets aws-waf-token;
+  // subsequent requests with that cookie succeed.
+  try {
+    await page.goto('https://www.trustpilot.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await new Promise(r => setTimeout(r, 1500));
+  } catch {}
+}
+
+async function _gotoWithRetry(page, url, maxAttempts = 3) {
+  let lastResp = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      lastResp = resp;
+      const status = resp?.status() ?? 0;
+      if (status && status < 400) return resp;
+      if (status === 403 && i < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+        continue;
+      }
+      return resp;
+    } catch (err) {
+      if (i === maxAttempts - 1) throw err;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  return lastResp;
+}
+
 async function _findTrustpilotPage(browser, website, companyName) {
   try {
     const page = await browser.newPage();
-    await page.setUserAgent(USER_AGENT);
+    await primePage(page);
+    await _warmUp(page);
 
     // Extract domain from website — skip social media URLs (LinkedIn, Facebook, Twitter, etc.)
     let domain = '';
@@ -102,37 +173,57 @@ async function _findTrustpilotPage(browser, website, companyName) {
       const directUrl = `https://www.trustpilot.com/review/${domain}`;
       console.log(`  Trying: ${directUrl}`);
 
-      await page.goto(directUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+      const resp = await _gotoWithRetry(page, directUrl).catch(() => null);
+      const status = resp?.status() ?? 0;
 
-      // Check if page exists (not a 404 or search page)
-      const pageTitle = await page.title();
-      const currentUrl = page.url();
+      if (status && status < 400) {
+        // Give reviews a moment to render
+        await page.waitForSelector('[data-review-id], [class*="reviewCard"], script[type="application/ld+json"]', { timeout: 8000 }).catch(() => {});
+        const pageTitle = await page.title();
+        const currentUrl = page.url();
 
-      if (!currentUrl.includes('/search') && !pageTitle.includes('Page not found')) {
-        // Verify it's a valid review page by checking for reviews section
-        const hasReviews = await page.$('[data-review-id], [class*="review"]');
-        if (hasReviews) {
-          // Scrape the overall rating
-          const rating = await scrapeOverallRating(page);
-          return { found: true, url: directUrl, rating };
+        if (!currentUrl.includes('/search') && !pageTitle.includes('Page not found')) {
+          const hasReviews = await page.$('[data-review-id], [class*="review"]');
+          if (hasReviews) {
+            const rating = await scrapeOverallRating(page);
+            return { found: true, url: directUrl, rating };
+          }
         }
+      } else {
+        console.log(`  Direct URL returned status ${status}`);
       }
     }
 
-    // Try search by company name as fallback
+    // Fallback 1: Trustpilot's own search
     console.log(`  Searching for "${companyName}" on Trustpilot...`);
     const searchUrl = `https://www.trustpilot.com/search?query=${encodeURIComponent(companyName)}`;
-    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });  // Increased from 15s to 30s
+    const searchResp = await _gotoWithRetry(page, searchUrl).catch(() => null);
 
-    // Get first search result
-    const firstResult = await page.$('a[href*="/review/"]');
-    if (firstResult) {
-      const href = await firstResult.evaluate(el => el.href);
-      console.log(`  Found via search: ${href}`);
-      // Navigate to the page to get the rating
-      await page.goto(href, { waitUntil: 'networkidle2', timeout: 30000 });  // Increased from 15s to 30s
-      const rating = await scrapeOverallRating(page);
-      return { found: true, url: href, rating };
+    if (searchResp && searchResp.status() < 400) {
+      await page.waitForSelector('a[href*="/review/"]', { timeout: 8000 }).catch(() => {});
+      const firstResult = await page.$('a[href*="/review/"]');
+      if (firstResult) {
+        const href = await firstResult.evaluate(el => el.href);
+        console.log(`  Found via Trustpilot search: ${href}`);
+        await _gotoWithRetry(page, href);
+        await page.waitForSelector('[data-review-id], [class*="reviewCard"]', { timeout: 8000 }).catch(() => {});
+        const rating = await scrapeOverallRating(page);
+        return { found: true, url: href, rating };
+      }
+    }
+
+    // Fallback 2: Google site search (works when Trustpilot blocks us)
+    console.log(`  Trying Google fallback for "${companyName}"...`);
+    const googleHit = await _googleFallback(page, companyName);
+    if (googleHit) {
+      console.log(`  Found via Google: ${googleHit}`);
+      await page.goto(googleHit, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
+      await page.waitForSelector('[data-review-id], [class*="reviewCard"]', { timeout: 8000 }).catch(() => {});
+      const hasReviews = await page.$('[data-review-id], [class*="review"]');
+      if (hasReviews) {
+        const rating = await scrapeOverallRating(page);
+        return { found: true, url: googleHit, rating };
+      }
     }
 
     return { found: false, url: null, rating: null };
@@ -148,7 +239,8 @@ async function _scrapeReviews(browser, url, stars = [1, 2], maxReviews = 20) {
 
   try {
     const page = await browser.newPage();
-    await page.setUserAgent(USER_AGENT);
+    await primePage(page);
+    await _warmUp(page);
 
     // Navigate to reviews page filtered by star rating
     for (const star of stars) {
@@ -157,10 +249,7 @@ async function _scrapeReviews(browser, url, stars = [1, 2], maxReviews = 20) {
       const reviewUrl = `${url}?stars=${star}`;
       console.log(`  Scraping ${star}-star reviews from: ${reviewUrl}`);
 
-      await page.goto(reviewUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 60000  // Increased from 30s to 60s
-      });
+      await _gotoWithRetry(page, reviewUrl);
 
       // Wait for reviews to load
       await page.waitForSelector('[data-review-id], [class*="reviewCard"]', { timeout: 15000 }).catch(() => {  // Increased from 10s to 15s

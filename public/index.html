@@ -1543,7 +1543,7 @@
               <!-- Preset Selector -->
               <div class="field">
                 <div class="field-label">Preset</div>
-                <div class="custom-select" id="outreachPresetSelect" data-value="ecommerce-ops" style="position: relative;">
+                <div class="custom-select" id="outreachPresetSelect" data-value="ecommerce-ops" data-manual-dropdown="true" style="position: relative;">
                   <div class="custom-select-trigger" tabindex="0" onclick="toggleOutreachPresetDropdown()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleOutreachPresetDropdown()">
                     <span class="cs-label" id="outreachPresetLabel">E-commerce Ops</span>
                     <svg class="cs-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1952,6 +1952,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.custom-select').forEach(sel => {
+        if (sel.dataset.manualDropdown === 'true') return;
         const trigger = sel.querySelector('.custom-select-trigger');
         const dropdown = sel.querySelector('.custom-select-dropdown');
         sel._dropdown = dropdown;
@@ -2169,11 +2170,13 @@
 
     function toggleOutreachPresetDropdown() {
       const dd = document.getElementById('outreachPresetDropdown');
-      if (!dd) return;
+      const sel = document.getElementById('outreachPresetSelect');
+      if (!dd || !sel) return;
       const isOpen = dd.style.opacity === '1';
       if (isOpen) {
         closeOutreachPresetDropdown();
       } else {
+        sel.classList.add('open');
         dd.style.opacity = '1';
         dd.style.pointerEvents = 'auto';
         dd.style.transform = 'translateY(0)';
@@ -2183,7 +2186,9 @@
 
     function closeOutreachPresetDropdown() {
       const dd = document.getElementById('outreachPresetDropdown');
+      const sel = document.getElementById('outreachPresetSelect');
       if (!dd) return;
+      if (sel) sel.classList.remove('open');
       dd.style.opacity = '0';
       dd.style.pointerEvents = 'none';
       dd.style.transform = 'translateY(-4px)';
