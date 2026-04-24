@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outreach Automation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #000000;
+      --soft-black: #0A0A0A;
+      --charcoal: #1A1A1A;
+      --dark-gray: #2A2A2A;
+      --mid-gray: #6B6B6B;
+      --light-gray: #A0A0A0;
+      --off-white: #E5E5E5;
+      --white: #FFFFFF;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --error: #EF4444;
+      --info: #3B82F6;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--black);
+      color: var(--off-white);
+      min-height: 100vh;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 48px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .logo-sub {
+      font-size: 14px;
+      color: var(--light-gray);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--soft-black);
+      border: 1px solid var(--charcoal);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 20px;
+    }
+
+    /* Form Elements */
+    .form-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .form-group {
+      flex: 1;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--off-white);
+      margin-bottom: 8px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="time"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--charcoal);
+      border: 1px solid var(--dark-gray);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--white);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--white);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--mid-gray);
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 40px;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      background: var(--white);
+      color: var(--black);
+      border: none;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--off-white);
+    }
+
+    .btn-primary:disabled {
+      background: var(--dark-gray);
+      color: var(--mid-gray);
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--white);
+      border: 1px solid var(--dark-gray);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--charcoal);
+      border-color: var(--mid-gray);
+    }
+
+    .btn-secondary:disabled {
+      color: var(--mid-gray);
+      cursor: not-allowed;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .stat-box {
+      background: var(--charcoal);
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--light-gray);
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.idle {
+      background: var(--charcoal);
+      color: var(--light-gray);
+    }
+
+    .status-badge.running {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--info);
+    }
+
+    .status-badge.completed {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+    }
+
+    .status-badge.connected {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+    }
+
+    .status-badge.disconnected {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--error);
+    }
+
+    .status-badge.drafting {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--info);
+    }
+
+    /* Progress Bar */
+    .progress-container {
+      margin: 20px 0;
+    }
+
+    .progress-bar-bg {
+      height: 8px;
+      background: var(--charcoal);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--white);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .progress-label {
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    .progress-current {
+      color: var(--light-gray);
+    }
+
+    /* Log */
+    .log-container {
+      max-height: 240px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 12px;
+      background: var(--charcoal);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 16px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--dark-gray);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-time {
+      color: var(--mid-gray);
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .log-message {
+      color: var(--off-white);
+    }
+
+    /* Gmail Section */
+    .gmail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .gmail-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .gmail-email {
+      font-size: 13px;
+      color: var(--light-gray);
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+
+    /* Hidden sections */
+    .progress-section {
+      display: none;
+    }
+
+    .progress-section.active {
+      display: block;
+    }
+
+    /* Status Header */
+    .status-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .form-row {
+        flex-direction: column;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-row {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--charcoal);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--dark-gray);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--mid-gray);
+    }
+
+    /* Focus states for accessibility */
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--white);
+      outline-offset: 2px;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 class="logo">Outreach Automation</h1>
+      <p class="logo-sub">Trustpilot Analysis + AI Email Generation</p>
+    </header>
+
+    <!-- Configure Section -->
+    <div class="card">
+      <div class="card-header">Configure Processing</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="startRow">Start Row</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="number" id="startRow" placeholder="18" value="18" style="flex: 1;">
+            <button type="button" class="btn btn-secondary" onclick="refreshStartRow()" title="Find first unprocessed row" style="padding: 8px 12px; min-width: auto;">
+              ↻
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="endRow">End Row</label>
+          <input type="number" id="endRow" placeholder="20" value="20">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="startBtn" onclick="startProcessing()">
+          Start Processing
+        </button>
+        <button class="btn btn-secondary" id="stopBtn" onclick="stopProcessing()" disabled>
+          Stop
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Section -->
+    <div class="card">
+      <div class="status-header">
+        <div class="card-header" style="margin-bottom: 0;">Processing Status</div>
+        <span class="status-badge idle" id="statusBadge">Idle</span>
+      </div>
+
+      <div class="progress-section" id="progressSection">
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"></div>
+          </div>
+          <div class="progress-text">
+            <span class="progress-label" id="progressLabel">0 / 0</span>
+            <span class="progress-current" id="currentCompany"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-section" id="statsSection">
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="successCount">0</div>
+            <div class="stat-label">Successful</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="skippedCount">0</div>
+            <div class="stat-label">Skipped</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="failedCount">0</div>
+            <div class="stat-label">Failed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Draft to Gmail Section -->
+    <div class="card">
+      <div class="gmail-header">
+        <div class="card-header" style="margin-bottom: 0;">Draft to Gmail</div>
+        <div class="gmail-info">
+          <span class="status-badge idle" id="gmailBadge">Checking...</span>
+          <span class="gmail-email" id="gmailEmail"></span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="draftMode">Email Filter</label>
+        <select id="draftMode">
+          <option value="ready">Ready for Review Only</option>
+          <option value="all">All (Skip Already Drafted)</option>
+          <option value="force">Force All (Re-draft)</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="draftStartBtn" onclick="startDrafting()">
+          Create Gmail Drafts
+        </button>
+        <button class="btn btn-secondary" id="draftStopBtn" onclick="stopDrafting()" disabled>
+          Stop
+        </button>
+      </div>
+
+      <!-- Draft Progress -->
+      <div id="draftProgressSection" style="display: none; margin-top: 24px;">
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="draftProgressBar"></div>
+          </div>
+          <div class="progress-text">
+            <span class="progress-label" id="draftProgressLabel">0 / 0</span>
+            <span class="progress-current" id="draftCurrentCompany"></span>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="margin-top: 16px;">
+          <div class="stat-box">
+            <div class="stat-value" id="draftedCount">0</div>
+            <div class="stat-label">Drafted</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="draftSkippedCount">0</div>
+            <div class="stat-label">Skipped</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="draftFailedCount">0</div>
+            <div class="stat-label">Failed</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="log-container" id="draftLogContainer" style="margin-top: 20px;">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-message">Draft system ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scheduled Sending Section -->
+    <div class="card">
+      <div class="card-header">Schedule Email Sending</div>
+
+      <!-- Recovery Notification Banner -->
+      <div id="recoveryBanner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 6px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div id="recoveryMessage"></div>
+          <button onclick="dismissRecoveryBanner()" style="background: none; border: none; cursor: pointer; color: inherit; font-size: 16px; padding: 0 4px;">&times;</button>
+        </div>
+        <div id="recoveryDetails" style="margin-top: 8px; font-size: 12px; opacity: 0.9;"></div>
+      </div>
+
+      <!-- Test Draft Creation -->
+      <div style="padding: 16px; background: var(--charcoal); border-radius: 6px; margin-bottom: 20px;">
+        <div style="font-size: 13px; font-weight: 500; color: var(--off-white); margin-bottom: 12px;">Create Test Draft</div>
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label class="form-label" for="testEmail">Recipient Email</label>
+            <input type="text" id="testEmail" placeholder="your@email.com" value="">
+          </div>
+          <div class="form-group" style="flex: 0 0 auto;">
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-secondary" onclick="createTestDraft()">Create Test Draft</button>
+          </div>
+        </div>
+        <div id="testDraftResult" style="margin-top: 12px; font-size: 13px; display: none;"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="scheduleDate">Date</label>
+          <input type="date" id="scheduleDate" value="">
+          <script>
+            (function() {
+              const today = new Date().toISOString().slice(0,10);
+              const dateInput = document.getElementById('scheduleDate');
+              dateInput.value = today;
+              dateInput.min = today; // Can't select past dates
+            })();
+          </script>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="timezone">Timezone</label>
+          <select id="timezone">
+            <option value="America/New_York" selected>New York (ET)</option>
+            <option value="America/Los_Angeles">Los Angeles (PT)</option>
+            <option value="America/Chicago">Chicago (CT)</option>
+            <option value="America/Denver">Denver (MT)</option>
+            <option value="Europe/London">London (GMT/BST)</option>
+            <option value="Europe/Paris">Paris (CET/CEST)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top: 16px;">
+        <div class="form-group">
+          <label class="form-label" for="scheduleStartTime">Start Time</label>
+          <input type="time" id="scheduleStartTime" value="09:00">
+          <script>
+            (function() {
+              const now = new Date();
+              now.setMinutes(now.getMinutes() + 1); // Add 1 minute
+              const hours = String(now.getHours()).padStart(2, '0');
+              const mins = String(now.getMinutes()).padStart(2, '0');
+              document.getElementById('scheduleStartTime').value = hours + ':' + mins;
+            })();
+          </script>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="scheduleEndTime">End Time</label>
+          <input type="time" id="scheduleEndTime" value="17:00">
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top: 16px;">
+        <div class="form-group">
+          <label class="form-label" for="minInterval">Min Interval (min)</label>
+          <input type="number" id="minInterval" value="15" min="1" max="120">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="maxInterval">Max Interval (min)</label>
+          <input type="number" id="maxInterval" value="25" min="1" max="120">
+        </div>
+      </div>
+
+      <div class="form-row" style="margin-top: 16px;">
+        <div class="form-group">
+          <label class="form-label" for="filterEmail">Filter by Email (optional - for testing)</label>
+          <input type="text" id="filterEmail" placeholder="e.g. you@gmail.com" value="">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="previewScheduleBtn" onclick="previewSchedule()">
+          Preview Schedule
+        </button>
+        <button class="btn btn-primary" id="startScheduleBtn" onclick="startSchedule()" disabled>
+          Start Scheduled Sending
+        </button>
+        <button class="btn btn-secondary" id="stopScheduleBtn" onclick="stopSchedule()" disabled>
+          Stop
+        </button>
+      </div>
+
+      <!-- Schedule Warning -->
+      <div id="scheduleWarning" style="display: none; margin-top: 16px; padding: 12px 16px; background: rgba(245, 158, 11, 0.15); border-radius: 6px; color: var(--warning); font-size: 13px;"></div>
+
+      <!-- Schedule Preview Table -->
+      <div id="schedulePreviewSection" style="display: none; margin-top: 20px;">
+        <div style="font-size: 13px; font-weight: 500; color: var(--off-white); margin-bottom: 12px;">Schedule Preview</div>
+        <div style="overflow-x: auto;">
+          <table id="schedulePreviewTable" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="background: var(--charcoal); color: var(--off-white);">
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Company</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Recipient</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Scheduled Time</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Your Local Time</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Status</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Action</th>
+              </tr>
+            </thead>
+            <tbody id="schedulePreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Schedule Progress -->
+      <div id="scheduleProgressSection" style="display: none; margin-top: 24px;">
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="scheduleProgressBar"></div>
+          </div>
+          <div class="progress-text">
+            <span class="progress-label" id="scheduleProgressLabel">0 / 0</span>
+            <span class="progress-current" id="scheduleStatus">Preparing...</span>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="margin-top: 16px;">
+          <div class="stat-box">
+            <div class="stat-value" id="scheduleSentCount">0</div>
+            <div class="stat-label">Sent</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="schedulePendingCount">0</div>
+            <div class="stat-label">Pending</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="scheduleFailedCount">0</div>
+            <div class="stat-label">Failed</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="log-container" id="scheduleLogContainer" style="margin-top: 20px;">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-message">Schedule system ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Log Section -->
+    <div class="card">
+      <div class="card-header">Activity Log</div>
+      <div class="log-container" id="logContainer">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-message">System initialized. Ready for input.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pollInterval = null;
+
+    // Fetch and set the first unprocessed row from Sheet1
+    async function refreshStartRow() {
+      try {
+        const res = await fetch('/api/first-unprocessed-row');
+        const data = await res.json();
+        if (res.ok && data.row) {
+          document.getElementById('startRow').value = data.row;
+          // Also update end row to match if it's less than start row
+          const endRowInput = document.getElementById('endRow');
+          if (parseInt(endRowInput.value) < data.row) {
+            endRowInput.value = data.row;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch first unprocessed row:', error);
+      }
+    }
+
+    // Auto-fetch start row on page load
+    refreshStartRow();
+
+    // Check for recovered scheduled emails on page load
+    async function checkRecoveryStatus() {
+      try {
+        const res = await fetch('/api/schedule/recovery');
+        const data = await res.json();
+
+        if (!data.lastRecovery) return; // No recovery happened yet
+
+        const total = data.recovered + data.rescheduled + data.expired;
+        if (total === 0) return; // Nothing to report
+
+        const banner = document.getElementById('recoveryBanner');
+        const message = document.getElementById('recoveryMessage');
+        const details = document.getElementById('recoveryDetails');
+
+        // Determine banner color based on what happened
+        if (data.expired > 0) {
+          banner.style.background = 'rgba(245, 158, 11, 0.15)';
+          banner.style.color = 'var(--warning)';
+        } else {
+          banner.style.background = 'rgba(34, 197, 94, 0.15)';
+          banner.style.color = 'var(--success)';
+        }
+
+        // Build message
+        const parts = [];
+        if (data.recovered > 0) parts.push(`${data.recovered} restored`);
+        if (data.rescheduled > 0) parts.push(`${data.rescheduled} rescheduled`);
+        if (data.expired > 0) parts.push(`${data.expired} expired`);
+
+        message.innerHTML = `<strong>Schedule Recovery:</strong> ${parts.join(', ')}`;
+
+        // Build details
+        if (data.details && data.details.length > 0) {
+          const detailLines = data.details.map(d => {
+            if (d.action === 'restored') return `• ${d.company}: restored (original time)`;
+            if (d.action === 'rescheduled') return `• ${d.company}: moved +${d.daysAdded} day(s)`;
+            if (d.action === 'expired') return `• ${d.company}: expired (${d.daysOverdue} days overdue)`;
+            return `• ${d.company}: ${d.action}`;
+          });
+          details.innerHTML = detailLines.join('<br>');
+        }
+
+        banner.style.display = 'block';
+
+        // Also update the schedule status if there are pending emails
+        if (data.recovered > 0 || data.rescheduled > 0) {
+          startSchedulePolling();
+        }
+      } catch (error) {
+        console.error('Failed to check recovery status:', error);
+      }
+    }
+
+    function dismissRecoveryBanner() {
+      document.getElementById('recoveryBanner').style.display = 'none';
+    }
+
+    // Check recovery status on page load
+    checkRecoveryStatus();
+
+    async function startProcessing() {
+      const startRow = document.getElementById('startRow').value || 18;
+      const endRow = document.getElementById('endRow').value || startRow;
+
+      try {
+        const res = await fetch('/api/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startRow, endRow })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById('startBtn').disabled = true;
+          document.getElementById('stopBtn').disabled = false;
+          document.getElementById('progressSection').classList.add('active');
+          document.getElementById('statsSection').classList.add('active');
+          startPolling();
+        } else {
+          addLog('Error: ' + (data.error || 'Failed to start'));
+        }
+      } catch (err) {
+        addLog('Error: ' + err.message);
+      }
+    }
+
+    async function stopProcessing() {
+      try {
+        await fetch('/api/stop', { method: 'POST' });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function startPolling() {
+      pollInterval = setInterval(updateStatus, 1000);
+      updateStatus();
+    }
+
+    async function updateStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        // Update progress
+        const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
+        document.getElementById('progressBar').style.width = progress + '%';
+        document.getElementById('progressLabel').textContent = `${data.progress} / ${data.total}`;
+        document.getElementById('currentCompany').textContent = data.current || '';
+
+        // Update stats
+        document.getElementById('successCount').textContent = data.results.successful;
+        document.getElementById('skippedCount').textContent = data.results.skipped;
+        document.getElementById('failedCount').textContent = data.results.failed;
+
+        // Update status badge
+        const badge = document.getElementById('statusBadge');
+        if (data.running) {
+          badge.textContent = 'Processing';
+          badge.className = 'status-badge running';
+        } else if (data.progress > 0) {
+          badge.textContent = 'Complete';
+          badge.className = 'status-badge completed';
+          document.getElementById('startBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = true;
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        } else {
+          badge.textContent = 'Idle';
+          badge.className = 'status-badge idle';
+        }
+
+        // Update logs
+        const logContainer = document.getElementById('logContainer');
+        if (data.logs.length > 0) {
+          logContainer.innerHTML = data.logs.map(log => `
+            <div class="log-entry">
+              <span class="log-time">${log.time}</span>
+              <span class="log-message">${log.message}</span>
+            </div>
+          `).join('');
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }
+
+    function addLog(message) {
+      const logContainer = document.getElementById('logContainer');
+      const time = new Date().toLocaleTimeString();
+      logContainer.innerHTML += `
+        <div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-message">${message}</span>
+        </div>
+      `;
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // Check status on page load
+    updateStatus();
+
+    // ============ DRAFT EMAILS FUNCTIONS ============
+
+    let draftPollInterval = null;
+
+    // Check Gmail connection on page load
+    checkGmailConnection();
+
+    async function checkGmailConnection() {
+      const badge = document.getElementById('gmailBadge');
+      const emailSpan = document.getElementById('gmailEmail');
+
+      try {
+        const res = await fetch('/api/draft/check');
+        const data = await res.json();
+
+        if (data.connected) {
+          badge.textContent = 'Connected';
+          badge.className = 'status-badge connected';
+          emailSpan.textContent = data.email;
+        } else {
+          badge.textContent = 'Not Connected';
+          badge.className = 'status-badge disconnected';
+          emailSpan.textContent = 'Authorization required';
+        }
+      } catch (err) {
+        badge.textContent = 'Error';
+        badge.className = 'status-badge disconnected';
+        emailSpan.textContent = err.message;
+      }
+    }
+
+    async function startDrafting() {
+      const mode = document.getElementById('draftMode').value;
+
+      addDraftLog('Starting draft creation...');
+
+      try {
+        const res = await fetch('/api/draft/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById('draftStartBtn').disabled = true;
+          document.getElementById('draftStopBtn').disabled = false;
+          document.getElementById('draftProgressSection').style.display = 'block';
+          document.getElementById('gmailBadge').textContent = 'Drafting';
+          document.getElementById('gmailBadge').className = 'status-badge drafting';
+          startDraftPolling();
+        } else {
+          addDraftLog('Error: ' + (data.error || 'Failed to start'));
+        }
+      } catch (err) {
+        addDraftLog('Error: ' + err.message);
+      }
+    }
+
+    async function stopDrafting() {
+      try {
+        await fetch('/api/draft/stop', { method: 'POST' });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function startDraftPolling() {
+      draftPollInterval = setInterval(updateDraftStatus, 1000);
+      updateDraftStatus();
+    }
+
+    async function updateDraftStatus() {
+      try {
+        const res = await fetch('/api/draft/status');
+        const data = await res.json();
+
+        // Update progress
+        const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
+        document.getElementById('draftProgressBar').style.width = progress + '%';
+        document.getElementById('draftProgressLabel').textContent = `${data.progress} / ${data.total}`;
+        document.getElementById('draftCurrentCompany').textContent = data.current || '';
+
+        // Update stats
+        document.getElementById('draftedCount').textContent = data.results.drafted;
+        document.getElementById('draftSkippedCount').textContent = data.results.skipped;
+        document.getElementById('draftFailedCount').textContent = data.results.failed;
+
+        // Update Gmail badge
+        const badge = document.getElementById('gmailBadge');
+        if (data.running) {
+          badge.textContent = 'Drafting';
+          badge.className = 'status-badge drafting';
+        } else if (data.gmailConnected) {
+          badge.textContent = 'Connected';
+          badge.className = 'status-badge connected';
+          document.getElementById('draftStartBtn').disabled = false;
+          document.getElementById('draftStopBtn').disabled = true;
+          if (draftPollInterval) {
+            clearInterval(draftPollInterval);
+            draftPollInterval = null;
+          }
+        }
+
+        // Update logs
+        const logContainer = document.getElementById('draftLogContainer');
+        if (data.logs.length > 0) {
+          logContainer.innerHTML = data.logs.map(log => `
+            <div class="log-entry">
+              <span class="log-time">${log.time}</span>
+              <span class="log-message">${log.message}</span>
+            </div>
+          `).join('');
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+      } catch (err) {
+        console.error('Draft poll error:', err);
+      }
+    }
+
+    function addDraftLog(message) {
+      const logContainer = document.getElementById('draftLogContainer');
+      const time = new Date().toLocaleTimeString();
+      logContainer.innerHTML += `
+        <div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-message">${message}</span>
+        </div>
+      `;
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // ============ SCHEDULED SENDING FUNCTIONS ============
+
+    let schedulePollInterval = null;
+    let schedulePreviewData = null;
+
+    // Timezone mapping for display
+    const TIMEZONE_LABELS = {
+      'America/New_York': 'ET',
+      'America/Chicago': 'CT',
+      'America/Denver': 'MT',
+      'America/Los_Angeles': 'PT',
+      'Europe/London': 'GMT',
+      'Europe/Paris': 'CET'
+    };
+
+    // Get user's local timezone label
+    function getLocalTimezoneLabel() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return TIMEZONE_LABELS[tz] || tz.split('/').pop().replace('_', ' ');
+      } catch (e) {
+        return 'Local';
+      }
+    }
+
+    // Format time showing both selected timezone and local time
+    // Returns an object with both times for flexible display
+    function formatTimeInTimezone(isoString, timezone) {
+      if (!isoString) return { selected: 'N/A', local: 'N/A', combined: 'N/A' };
+      const tz = timezone || 'America/New_York';
+      const label = TIMEZONE_LABELS[tz] || tz;
+      const localLabel = getLocalTimezoneLabel();
+
+      const date = new Date(isoString);
+
+      // Format in selected timezone
+      const selectedTime = date.toLocaleString('en-US', {
+        timeZone: tz,
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+
+      // Format in local timezone
+      const localTime = date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+
+      return {
+        selected: `${selectedTime} ${label}`,
+        local: `${localTime} ${localLabel}`,
+        combined: `${selectedTime} ${label}<br><span style="color: var(--light-gray); font-size: 11px;">${localTime} ${localLabel}</span>`
+      };
+    }
+
+    // Set default date to today on page load and check for existing scheduled emails
+    document.addEventListener('DOMContentLoaded', async function() {
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('scheduleDate').value = today;
+
+      // Check for existing scheduled emails (from server memory or recovered from sheet)
+      await checkForExistingScheduledEmails();
+    });
+
+    async function checkForExistingScheduledEmails() {
+      try {
+        const res = await fetch('/api/schedule/status');
+        const data = await res.json();
+
+        // If there are scheduled emails in memory, show them
+        if (data.scheduledEmails && data.scheduledEmails.length > 0) {
+          console.log(`[INIT] Found ${data.scheduledEmails.length} scheduled emails in server memory`);
+          const tz = data.settings?.timezone || 'America/New_York';
+
+          // Show the preview section
+          document.getElementById('schedulePreviewSection').style.display = 'block';
+
+          // Populate the preview table
+          const tbody = document.getElementById('schedulePreviewBody');
+          tbody.innerHTML = data.scheduledEmails.map(email => {
+            let statusClass = 'idle';
+            let statusText = 'Pending';
+
+            if (email.status === 'sent') {
+              statusClass = 'connected';
+              statusText = 'Sent';
+            } else if (email.status === 'failed') {
+              statusClass = 'disconnected';
+              statusText = 'Failed';
+            } else if (email.status === 'cancelled') {
+              statusClass = 'idle';
+              statusText = 'Cancelled';
+            }
+
+            const times = formatTimeInTimezone(email.scheduledTime, tz);
+
+            // Show cancel button for pending emails
+            const actionBtn = email.status === 'pending'
+              ? `<button onclick="cancelScheduledEmail('${email.company}')" style="background: var(--error); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Cancel</button>`
+              : '-';
+
+            return `
+              <tr>
+                <td>${email.company}</td>
+                <td>${email.ceoEmail}</td>
+                <td style="color: var(--success);">${times.selected}</td>
+                <td style="color: var(--light-gray);">${times.local}</td>
+                <td><span class="status-dot ${statusClass}"></span> ${statusText}</td>
+                <td>${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
+
+          // Update stats
+          document.getElementById('scheduleSentCount').textContent = data.results.sent;
+          document.getElementById('schedulePendingCount').textContent = data.results.pending;
+          document.getElementById('scheduleFailedCount').textContent = data.results.failed;
+
+          // Handle buttons based on state
+          const hasPending = data.scheduledEmails.some(e => e.status === 'pending');
+          if (hasPending) {
+            // Has pending emails - allow adding more
+            document.getElementById('stopScheduleBtn').disabled = false;
+            document.getElementById('previewScheduleBtn').disabled = false;
+            document.getElementById('startScheduleBtn').disabled = false;
+            document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
+            // Start polling for updates
+            startSchedulePolling();
+            addScheduleLog(`Restored: ${data.scheduledEmails.filter(e => e.status === 'pending').length} pending email(s) found`);
+          } else {
+            document.getElementById('stopScheduleBtn').disabled = true;
+            document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+          }
+        }
+      } catch (err) {
+        console.error('[INIT] Error checking for scheduled emails:', err);
+      }
+    }
+
+    async function createTestDraft() {
+      const email = document.getElementById('testEmail').value;
+      const resultDiv = document.getElementById('testDraftResult');
+
+      if (!email) {
+        resultDiv.innerHTML = '<span style="color: var(--error);">Please enter an email address</span>';
+        resultDiv.style.display = 'block';
+        return;
+      }
+
+      resultDiv.innerHTML = '<span style="color: var(--light-gray);">Creating test draft...</span>';
+      resultDiv.style.display = 'block';
+
+      try {
+        const res = await fetch('/api/schedule/test-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          resultDiv.innerHTML = `<span style="color: var(--success);">Test draft created: "${data.subject}"</span>`;
+          addScheduleLog(`Test draft created for ${email}`);
+        } else {
+          resultDiv.innerHTML = `<span style="color: var(--error);">Error: ${data.error}</span>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<span style="color: var(--error);">Error: ${err.message}</span>`;
+      }
+    }
+
+    function showScheduleError(message) {
+      const warningDiv = document.getElementById('scheduleWarning');
+      warningDiv.textContent = message;
+      warningDiv.style.display = 'block';
+      warningDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+      warningDiv.style.color = 'var(--error)';
+      addScheduleLog('Error: ' + message);
+      // Hide preview table on error
+      document.getElementById('schedulePreviewSection').style.display = 'none';
+      document.getElementById('startScheduleBtn').disabled = true;
+    }
+
+    function clearScheduleError() {
+      const warningDiv = document.getElementById('scheduleWarning');
+      warningDiv.style.display = 'none';
+      warningDiv.style.background = 'rgba(245, 158, 11, 0.15)';
+      warningDiv.style.color = 'var(--warning)';
+    }
+
+    async function previewSchedule() {
+      // Clear any previous errors
+      clearScheduleError();
+
+      // Show loading state
+      const tbody = document.getElementById('schedulePreviewBody');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="padding: 20px; text-align: center; color: var(--light-gray);">
+            Loading...
+          </td>
+        </tr>
+      `;
+      document.getElementById('schedulePreviewSection').style.display = 'block';
+
+      try {
+        // First, check if there are already scheduled emails
+        const statusRes = await fetch('/api/schedule/status');
+        const statusData = await statusRes.json();
+        const hasPendingScheduled = statusData.scheduledEmails &&
+          statusData.scheduledEmails.some(e => e.status === 'pending');
+
+        if (hasPendingScheduled) {
+          // Show already scheduled emails with cancel buttons
+          const tz = statusData.settings?.timezone || 'America/New_York';
+          tbody.innerHTML = statusData.scheduledEmails.map(email => {
+            let statusClass = 'idle';
+            let statusText = 'Pending';
+            if (email.status === 'sent') { statusClass = 'connected'; statusText = 'Sent'; }
+            else if (email.status === 'failed') { statusClass = 'disconnected'; statusText = 'Failed'; }
+            else if (email.status === 'cancelled') { statusClass = 'idle'; statusText = 'Cancelled'; }
+            const times = formatTimeInTimezone(email.scheduledTime, tz);
+            const actionBtn = email.status === 'pending'
+              ? `<button onclick="cancelScheduledEmail('${email.company.replace(/'/g, "\\'")}')" style="background: var(--error); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Cancel</button>`
+              : '-';
+            return `
+              <tr style="border-bottom: 1px solid var(--dark-gray);">
+                <td style="padding: 10px; color: var(--white);">${email.company}</td>
+                <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
+                <td style="padding: 10px; color: var(--success);">${times.selected}</td>
+                <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
+                <td style="padding: 10px;"><span class="status-dot ${statusClass}"></span> ${statusText}</td>
+                <td style="padding: 10px;">${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
+
+          const pendingCount = statusData.scheduledEmails.filter(e => e.status === 'pending').length;
+          addScheduleLog(`Showing ${pendingCount} scheduled email(s)`);
+
+          // Update button states
+          document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
+          document.getElementById('startScheduleBtn').disabled = false;
+          document.getElementById('stopScheduleBtn').disabled = false;
+
+          // Start polling if not already
+          if (!schedulePollInterval) {
+            startSchedulePolling();
+          }
+          return;
+        }
+
+        // No scheduled emails - check for drafted emails to schedule
+        const scheduleDate = document.getElementById('scheduleDate').value;
+        const timezone = document.getElementById('timezone').value;
+        const startTime = document.getElementById('scheduleStartTime').value;
+        const endTime = document.getElementById('scheduleEndTime').value;
+        const minInterval = parseInt(document.getElementById('minInterval').value) || 15;
+        const maxInterval = document.getElementById('maxInterval').value;
+        const filterEmail = document.getElementById('filterEmail').value;
+
+        // Validation only needed when scheduling new emails
+        if (endTime <= startTime) {
+          showScheduleError('End time must be later than start time.');
+          return;
+        }
+
+        addScheduleLog('Calculating schedule preview...');
+        if (filterEmail) {
+          addScheduleLog(`Filtering by: ${filterEmail}`);
+        }
+
+        const res = await fetch('/api/schedule/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showScheduleError(data.error || 'Failed to preview');
+          return;
+        }
+
+        schedulePreviewData = data;
+
+        // Show/hide warning
+        const warningDiv = document.getElementById('scheduleWarning');
+        if (data.warning) {
+          warningDiv.textContent = data.warning;
+          warningDiv.style.display = 'block';
+        } else {
+          warningDiv.style.display = 'none';
+        }
+
+        // Populate preview table with drafted emails
+        if (data.emails.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="padding: 20px; text-align: center; color: var(--light-gray);">
+                No drafted emails found. Create drafts first.
+              </td>
+            </tr>
+          `;
+          document.getElementById('startScheduleBtn').disabled = true;
+        } else {
+          const previewTz = document.getElementById('timezone').value || 'America/New_York';
+          tbody.innerHTML = data.emails.map((email, index) => {
+            const times = email.scheduledTime ? formatTimeInTimezone(email.scheduledTime, previewTz) : { selected: 'Not scheduled', local: '-' };
+            return `
+            <tr style="border-bottom: 1px solid var(--dark-gray);">
+              <td style="padding: 10px; color: var(--white);">${email.company}</td>
+              <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
+              <td style="padding: 10px; color: ${email.scheduledTime ? 'var(--success)' : 'var(--light-gray)'};">${times.selected}</td>
+              <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
+              <td style="padding: 10px;">
+                <span class="status-badge ${email.scheduledTime ? 'idle' : 'disconnected'}">
+                  ${email.scheduledTime ? 'Ready' : 'Not scheduled'}
+                </span>
+              </td>
+              <td style="padding: 10px;">-</td>
+            </tr>
+          `}).join('');
+          document.getElementById('startScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+        }
+
+        addScheduleLog(`Preview ready: ${data.emails.filter(e => e.scheduledTime).length} emails will be scheduled`);
+      } catch (err) {
+        addScheduleLog('Error: ' + err.message);
+      }
+    }
+
+    async function startSchedule() {
+      const scheduleDate = document.getElementById('scheduleDate').value;
+      const timezone = document.getElementById('timezone').value;
+      const startTime = document.getElementById('scheduleStartTime').value;
+      const endTime = document.getElementById('scheduleEndTime').value;
+      const minInterval = document.getElementById('minInterval').value;
+      const maxInterval = document.getElementById('maxInterval').value;
+      const filterEmail = document.getElementById('filterEmail').value;
+
+      addScheduleLog('Starting scheduled sending...');
+      if (filterEmail) {
+        addScheduleLog(`Filter active: ${filterEmail}`);
+      }
+
+      try {
+        const res = await fetch('/api/schedule/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          // Show progress section and start polling
+          document.getElementById('scheduleProgressSection').style.display = 'block';
+          document.getElementById('stopScheduleBtn').disabled = false;
+          // Keep preview/start enabled - they'll be managed by updateScheduleStatus
+          // which allows adding more emails while others are pending
+          if (data.existingPending) {
+            addScheduleLog(`Adding to ${data.existingPending} existing pending email(s)`);
+          }
+          startSchedulePolling();
+        } else {
+          addScheduleLog('Error: ' + (data.error || 'Failed to start'));
+        }
+      } catch (err) {
+        addScheduleLog('Error: ' + err.message);
+      }
+    }
+
+    async function stopSchedule() {
+      try {
+        const res = await fetch('/api/schedule/stop', { method: 'POST' });
+        const data = await res.json();
+        addScheduleLog(data.message || 'Schedule stopped');
+        // Reset button text
+        document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+        document.getElementById('stopScheduleBtn').disabled = true;
+        // Trigger immediate status update
+        updateScheduleStatus();
+      } catch (err) {
+        console.error(err);
+        addScheduleLog('Error stopping schedule');
+      }
+    }
+
+    function startSchedulePolling() {
+      schedulePollInterval = setInterval(updateScheduleStatus, 1000);
+      updateScheduleStatus();
+    }
+
+    async function updateScheduleStatus() {
+      try {
+        const res = await fetch('/api/schedule/status');
+        const data = await res.json();
+
+        // Update progress
+        const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
+        document.getElementById('scheduleProgressBar').style.width = progress + '%';
+        document.getElementById('scheduleProgressLabel').textContent = `${data.progress} / ${data.total}`;
+
+        // Update stats
+        document.getElementById('scheduleSentCount').textContent = data.results.sent;
+        document.getElementById('schedulePendingCount').textContent = data.results.pending;
+        document.getElementById('scheduleFailedCount').textContent = data.results.failed;
+
+        // Update status text and buttons
+        const hasPending = data.scheduledEmails && data.scheduledEmails.some(e => e.status === 'pending');
+        if (data.running) {
+          // Actively processing a batch - disable start button temporarily
+          document.getElementById('scheduleStatus').textContent = `Scheduling...`;
+          document.getElementById('previewScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').disabled = true;
+          document.getElementById('stopScheduleBtn').disabled = false;
+        } else if (hasPending) {
+          // Has pending emails waiting for their scheduled time
+          document.getElementById('scheduleStatus').textContent = `Waiting for next send...`;
+          document.getElementById('previewScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
+          document.getElementById('stopScheduleBtn').disabled = false;
+        } else if (data.progress > 0) {
+          // All done
+          document.getElementById('scheduleStatus').textContent = 'Complete';
+          document.getElementById('previewScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').disabled = false;
+          document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+          document.getElementById('stopScheduleBtn').disabled = true;
+          if (schedulePollInterval) {
+            clearInterval(schedulePollInterval);
+            schedulePollInterval = null;
+          }
+        }
+
+        // Update preview table with current statuses (ALWAYS update, even if empty)
+        const tbody = document.getElementById('schedulePreviewBody');
+        const tz = data.settings?.timezone || 'America/New_York';
+        if (data.scheduledEmails && data.scheduledEmails.length > 0) {
+          tbody.innerHTML = data.scheduledEmails.map(email => {
+            let statusClass = 'idle';
+            let statusText = 'Pending';
+
+            if (email.status === 'sent') {
+              statusClass = 'connected';
+              statusText = 'Sent';
+            } else if (email.status === 'failed') {
+              statusClass = 'disconnected';
+              statusText = 'Failed';
+            } else if (email.status === 'cancelled') {
+              statusClass = 'idle';
+              statusText = 'Cancelled';
+            } else if (email.status && email.status.startsWith('blocked')) {
+              statusClass = 'disconnected';
+              statusText = 'Blocked';
+            }
+
+            const times = formatTimeInTimezone(email.scheduledTime, tz);
+
+            const cancelBtn = email.status === 'pending'
+              ? `<button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="cancelScheduledEmail('${email.company.replace(/'/g, "\\'")}')">Cancel</button>`
+              : '-';
+
+            return `
+              <tr style="border-bottom: 1px solid var(--dark-gray);">
+                <td style="padding: 10px; color: var(--white);">${email.company}</td>
+                <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
+                <td style="padding: 10px; color: var(--success);">${times.selected}</td>
+                <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
+                <td style="padding: 10px;">
+                  <span class="status-badge ${statusClass}">${statusText}</span>
+                </td>
+                <td style="padding: 10px;">${cancelBtn}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          // Clear the table when no scheduled emails
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="padding: 20px; text-align: center; color: var(--light-gray);">
+                No emails currently scheduled.
+              </td>
+            </tr>
+          `;
+        }
+
+        // Update logs
+        const logContainer = document.getElementById('scheduleLogContainer');
+        if (data.logs.length > 0) {
+          logContainer.innerHTML = data.logs.map(log => `
+            <div class="log-entry">
+              <span class="log-time">${log.time}</span>
+              <span class="log-message">${log.message}</span>
+            </div>
+          `).join('');
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+      } catch (err) {
+        console.error('Schedule poll error:', err);
+      }
+    }
+
+    async function cancelScheduledEmail(company) {
+      try {
+        addScheduleLog(`Cancelling: ${company}...`);
+        const res = await fetch('/api/schedule/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          addScheduleLog(`Cancelled: ${company}`);
+          // Refresh the status to update the table
+          updateScheduleStatus();
+        } else {
+          addScheduleLog(`Error cancelling ${company}: ${data.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        addScheduleLog(`Error: ${err.message}`);
+      }
+    }
+
+    function addScheduleLog(message) {
+      const logContainer = document.getElementById('scheduleLogContainer');
+      const time = new Date().toLocaleTimeString();
+      logContainer.innerHTML += `
+        <div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-message">${message}</span>
+        </div>
+      `;
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+  </script>
+</body>
+</html>

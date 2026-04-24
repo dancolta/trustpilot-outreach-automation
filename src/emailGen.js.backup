@@ -1,0 +1,182 @@
+/**
+ * V10 Email Generation - AI-powered with template guidelines
+ *
+ * Uses Google AI to generate cold emails following the V10 specification.
+ * Emails look like internal technical alerts to trigger emotional response.
+ */
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+let genAI = null;
+
+function getClient() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+      throw new Error('GEMINI_API_KEY is not configured.');
+    }
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI;
+}
+
+/**
+ * Generate a cold outreach email using V10 specification
+ *
+ * @param {Object} params
+ * @param {string} params.ceoName - CEO full name
+ * @param {Array} params.reviews - Array of review objects
+ * @param {number|null} params.trustpilotRating - Overall Trustpilot rating (float)
+ * @returns {Promise<string>} - Generated email with subject line
+ */
+export async function generateEmail({ ceoName, reviews, trustpilotRating }) {
+  const client = getClient();
+  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const firstName = ceoName ? ceoName.split(' ')[0] : 'there';
+
+  // Format reviews for the prompt
+  const reviewsText = reviews
+    .slice(0, 10)
+    .map((r, i) => `${i + 1}. [${r.rating}★] "${r.title}" - ${r.text}`)
+    .join('\n');
+
+  // Determine if rating line should be included
+  const includeRatingLine = trustpilotRating !== null && trustpilotRating < 2.0;
+  const ratingInstruction = includeRatingLine
+    ? `IMPORTANT: Include this line immediately after the name: "Your rating is sitting at ${trustpilotRating}."`
+    : `DO NOT mention the Trustpilot rating in the email.`;
+
+  const prompt = `You are generating a cold email to ${firstName} based on their company's negative Trustpilot reviews.
+
+# DATA INPUTS
+- First Name: ${firstName}
+- Trustpilot Rating: ${trustpilotRating || 'Unknown'}
+- Reviews:
+${reviewsText}
+
+# CRITICAL FORMATTING RULES
+1. The quote from reviews MUST be wrapped in HTML tags for bold and italics: <b><i>"quote here"</i></b>.
+2. ${ratingInstruction}
+3. TONE: High status, skeptical, direct. Like an internal technical alert.
+4. NO SIGNATURE at the end. None. No name, no sign-off.
+5. LAYOUT: Write every single sentence on its own new line. Separate distinct logical blocks with one blank line.
+   - The diagnosis, technical conflict, and impact sentences should be grouped together (NO blank lines between them).
+   - The mention of "Trustpilot page" should be on its own line.
+
+# SUBJECT LINE RULES
+- Generate a CUSTOM subject line based on the specific technical failure identified in the email body.
+- Format: Lowercase, 2-3 words max.
+- Style: Boring, technical, internal log style.
+- EXAMPLES (Do not copy, use as style guide):
+  - "dispatch sync" (if about delivery)
+  - "api mismatch" (if about data)
+  - "gateway timeout" (if about payments)
+  - "auth failure" (if about login)
+
+# BODY STRUCTURE
+Choose ONE of these 3 conversation structures and ADAPT it to reflect the actual issues from the reviews:
+
+## OPTION 1: "Blind Spot" (Paranoia Trigger)
+${firstName},
+[If Rating < 2.0: Your rating is sitting at ${trustpilotRating}.]
+
+<b><i>"[relevant quote from reviews]"</i></b>
+
+That's from Your Trustpilot page.
+
+[Short sentence diagnosing the root cause]
+[Short sentence explaining the technical conflict]
+[Short sentence on the impact]
+
+Are you actually seeing these error logs on your dashboard?
+
+## OPTION 2: "Talent Check" (Competence Challenge)
+${firstName},
+[If Rating < 2.0: Your rating is sitting at ${trustpilotRating}.]
+
+<b><i>"[relevant quote from reviews]"</i></b>
+
+This quote is a review from your Trustpilot page.
+
+[Short sentence identifying the broken process]
+[Short sentence explaining why the logic failed]
+
+Who is managing your middleware architecture right now?
+
+## OPTION 3: "Strategy Trap" (The Double Bind)
+${firstName},
+[If Rating < 2.0: Your rating is sitting at ${trustpilotRating}.]
+
+<b><i>"[relevant quote from reviews]"</i></b>
+This quote is from your Trustpilot page.
+
+[Short sentence about the business impact]
+[Short sentence about the system failure]
+
+I spent 8 years managing systems for the largest automotive e-commerce firm in Europe (AUTODOC SE).
+I have fixed this specific bottleneck at scale.
+
+# ADAPTATION INSTRUCTIONS
+- Pick the MOST relevant quote from the reviews that highlights a specific operational failure
+- The technical observation/diagnosis MUST relate to the actual issues mentioned in reviews
+- Frame the problem as a backend/system failure, not a customer service complaint
+- Keep the same skeptical, high-status tone
+- The closing question should be relevant to the specific issue
+
+# OUTPUT FORMAT
+Subject: [subject line]
+
+[body - no signature]
+
+Generate the email now:`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error(`  Error generating email: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Analyze reviews for technical root causes
+ */
+export async function analyzeReviewsWithAI(reviews, company) {
+  if (!reviews || reviews.length === 0) {
+    return 'No reviews to analyze';
+  }
+
+  const client = getClient();
+  const model = client.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const reviewText = reviews
+    .map((r, i) => `${i + 1}. [${r.rating}★] "${r.title}" - ${r.text}`)
+    .join('\n');
+
+  const prompt = `Analyze these Trustpilot reviews for ${company}.
+
+REVIEWS:
+${reviewText}
+
+Identify 2-3 TECHNICAL SYSTEM FAILURES (not customer service complaints).
+
+Frame as broken backend processes:
+- BAD: "Slow customer service"
+- GOOD: "Support ticketing system not integrated with carrier tracking API"
+- BAD: "Late deliveries"
+- GOOD: "OMS not calculating carrier transit times by destination zone"
+
+Respond with ONLY 2-3 technical failures, comma-separated. Be specific about which SYSTEM is failing.`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text().trim();
+  } catch (error) {
+    console.error(`  Error analyzing reviews: ${error.message}`);
+    return 'Unable to analyze';
+  }
+}
