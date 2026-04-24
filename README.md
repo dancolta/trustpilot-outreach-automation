@@ -2,336 +2,380 @@
 
 ![Pipeline Demo](demo.gif)
 
-Automated lead generation system that scrapes negative Trustpilot reviews, identifies technical pain points, and generates high-converting cold outreach emails.
+Turn Trustpilot complaints into personalized cold emails — automatically. This tool scrapes 1–2 star reviews for each lead, uses Gemini AI to identify operational pain points, and generates three A/B-tested email variants per lead. Drafts land directly in Gmail, optionally scheduled for delivery within configurable business hours.
 
-## How It Works
+**Who it's for:** Sales and outreach teams targeting companies with visible customer complaints on Trustpilot.
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Google Sheet   │────▶│   Trustpilot    │────▶│   Gemini AI     │
-│  (Lead Data)    │     │   (Scraping)    │     │  (Email Gen)    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                               │
-        │              ┌─────────────────┐              │
-        └─────────────▶│  Emails Tab     │◀─────────────┘
-                       │  (Output)       │
-                       └─────────────────┘
-```
+---
 
-1. **Read leads** from Google Sheet (company name, CEO, website)
-2. **Find Trustpilot page** for each company
-3. **Scrape 1-2 star reviews** using Puppeteer
-4. **Analyze pain points** with Gemini AI (frames as technical failures)
-5. **Generate cold email** using high-converting formula
-6. **Write results** to Emails tab + mark source row as processed
-
-## Project Structure
+## Architecture
 
 ```
-Outreach Automation/
-├── package.json              # Dependencies & scripts
-├── .env                      # API keys & Sheet ID
-├── credentials.json          # Google service account (gitignored)
-├── .gitignore
-├── README.md
-├── public/
-│   └── index.html            # Web interface (frontend)
-├── directives/
-│   └── trustpilot_outreach.md   # SOP documentation
-└── src/
-    ├── server.js             # Express server (web interface backend)
-    ├── index.js              # Main orchestrator (CLI)
-    ├── sheets.js             # Google Sheets read/write
-    ├── trustpilot.js         # Trustpilot scraper
-    ├── emailGen.js           # Gemini email generation
-    ├── format-sheet.js       # Apply table formatting
-    └── regenerate-emails.js  # Regenerate existing emails
+Leads CSV / Manual Entry
+         │
+         ▼
+  Google Sheet (Sheet1)
+  ─────────────────────
+  Status | Name | Company | Email | Website
+         │
+         ▼
+  Trustpilot Scraper (Puppeteer)
+  ─ searches by website domain
+  ─ scrapes 1–2 star reviews
+         │
+         ▼
+  Gemini AI (gemini-2.5-flash)
+  ─ identifies operational pain points
+  ─ selects most compelling quote
+         │
+         ▼
+  Email Generator (3 A/B Variants)
+  ┌──────────────────────────────────┐
+  │ A: Direct Value                  │
+  │ B: Curiosity Gap                 │
+  │ C: Peer Comparison               │
+  └──────────────────────────────────┘
+         │
+         ▼
+  Google Sheet (Emails tab)   ──►   Gmail Drafts
+         │
+         ▼
+  Scheduled Send
+  ─ business hours only
+  ─ 15–25 min randomized intervals
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Node.js + Express |
+| Frontend | Vanilla JS SPA (dark theme, shadcn palette) |
+| Scraping | Puppeteer (headless Chromium) |
+| AI | Google Gemini (`gemini-2.5-flash`) |
+| Spreadsheet | Google Sheets API v4 (service account auth) |
+| Email | Gmail API (OAuth2 user auth) |
+| File upload | multer |
+
+---
 
 ## Setup
 
-### 1. Install Dependencies
+### 1. Clone and install
+
 ```bash
+git clone <repo-url>
+cd trustpilot-outreach-automation
 npm install
 ```
 
-### 2. Google Cloud Setup
+### 2. Get a Gemini API key
+
+Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and create a key. You can enter it in the web UI later — no need to add it to `.env` manually.
+
+### 3. Create a Google Cloud project
+
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a project
-3. Enable **Google Sheets API**
-4. Create a Service Account (IAM & Admin → Service Accounts)
-5. Download JSON key → save as `credentials.json` in project root
-6. Share your Google Sheet with the service account email (Editor access)
+2. Enable **Google Sheets API** and **Gmail API**
+3. Create a **Service Account** for Sheets access:
+   - Go to IAM & Admin → Service Accounts → Create
+   - Download the JSON key and save as `credentials.json` in the project root
+   - Share your Google Sheet with the service account email (`...@...iam.gserviceaccount.com`)
+4. Create an **OAuth 2.0 Client ID** for Gmail access:
+   - Go to Credentials → Create Credentials → OAuth 2.0 Client ID
+   - Application type: **Desktop app**
+   - Download the JSON and save as `gmail-credentials.json` in the project root
 
-### 3. Gemini API Key
-1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-2. Create API key
-3. Add to `.env`
+### 4. Configure environment variables (optional)
 
-### 4. Configure .env
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
 ```env
-GEMINI_API_KEY=your_gemini_api_key
-GOOGLE_SHEET_ID=your_sheet_id
+GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_SHEET_ID=your_google_sheet_id_here
 GOOGLE_CREDENTIALS_PATH=./credentials.json
 ```
 
-## Quick Start (Web Interface)
+> These can also be configured via the web UI — settings are persisted to `settings.json` and take precedence over `.env`.
 
-The easiest way to use this app - a modern web UI.
+### 5. Start the server
 
-### Step 1: Install Dependencies (first time only)
-```bash
-cd ~/Work/nodesparks/Projects/Outreach\ Automation
-npm install
-```
-
-### Step 2: Start the Web Interface
 ```bash
 npm run web
 ```
 
-### Step 3: Open Browser
-Go to **http://localhost:3000**
+Open [http://localhost:3000](http://localhost:3000).
 
-### Step 4: Use the Interface
-1. Enter **Start Row** (e.g., 18)
-2. Enter **End Row** (e.g., 25)
-3. Click **Start Processing**
-4. Watch the progress in real-time
-5. Check your Google Sheet when done
+### 6. Complete setup in the UI
+
+1. Go to the **Setup** tab
+2. Enter your Gemini API key and click **Test**
+3. Paste your Google Sheet URL and click **Connect** (auto-formats the sheet on first connect)
+4. Click **Connect Gmail** — a browser window opens for OAuth authorization
+5. Select your send-from email or alias
 
 ---
 
-## Quick Start (Command Line)
+## Usage
 
-No Claude AI needed - just use Terminal.
+### Setup Tab
 
-### Step 1: Open Terminal
-```bash
-cd ~/Work/nodesparks/Projects/Outreach\ Automation
-```
+| Section | What it does |
+|---|---|
+| Gemini API Key | Enter and live-test your API key |
+| Google Sheet | Paste Sheet URL or ID; auto-formats headers and column widths on connect |
+| Google Service Account | Displays the service account email to use when sharing your Sheet |
+| Gmail | OAuth2 connection; shows connected email; supports multiple send-as aliases |
+| CSV Import | Drag-and-drop or click to upload; choose Append (deduplicate by email) or Replace (clears existing leads first) |
+| Manual Entry | Add individual leads via form |
 
-### Step 2: Process Leads
-```bash
-# Process specific rows (e.g., rows 24-28)
-node src/index.js --start=24 --limit=5
-```
+### Processing Tab
 
-### Step 3: Format the Sheet (optional)
-```bash
-node src/format-sheet.js
-```
+1. The leads table loads from Sheet1 automatically. Use the filter bar (**All / Unprocessed / Successful / Skipped / Failed**) or the search box to find leads.
+2. Select leads using the toggle controls: **Unprocessed**, **Page**, or **All** (click again to deselect).
+3. Click **Process Selected** to start. The Activity Log shows real-time events.
+4. After processing, each row shows a Gmail draft link and (if scheduled) the scheduled send time.
 
-### Command Reference
+**Status values:**
 
-| What you want | Command |
-|---------------|---------|
-| **Start web interface** | `npm run web` |
-| Process rows 30-35 | `node src/index.js --start=30 --limit=6` |
-| Process row 50 only | `node src/index.js --start=50 --limit=1` |
-| Process all from row 18 | `node src/index.js` |
-| Regenerate all emails | `npm run regenerate` |
-| Format the table | `npm run format` |
+| Status | Meaning |
+|---|---|
+| Queued | Waiting to be processed |
+| Processing | Currently running |
+| Successful | Reviews scraped, emails generated, draft created |
+| Skipped - No Trustpilot | No Trustpilot profile found for this company |
+| Skipped - No Reviews | Profile found but no 1–2 star reviews |
+| Failed | Error during scraping or generation |
 
-### Example Session (CLI)
-```bash
-# 1. Navigate to project
-cd ~/Work/nodesparks/Projects/Outreach\ Automation
-
-# 2. Process 10 leads starting from row 40
-node src/index.js --start=40 --limit=10
-
-# 3. Format the output
-npm run format
-
-# 4. Check Google Sheet for results
-```
+---
 
 ## Google Sheet Structure
 
-### Input: Sheet1
-| Column | Field |
-|--------|-------|
-| A | Channel (set to "email" after processing) |
-| C | First Name |
-| D | Last Name |
-| F | Company Name |
-| G | Email |
-| N | Website |
+### Sheet1 — Leads input
 
-### Output: Emails Tab
-| Column | Field |
-|--------|-------|
-| A | Company |
-| B | CEO Name |
-| C | CEO Email |
-| D | Trustpilot URL |
-| E | Pain Points |
-| F | Email Draft |
-| G | Status |
+| Column | Description |
+|---|---|
+| A — Status | Processing status (written by the tool) |
+| B — First Name | Lead's first name |
+| C — Last Name | Lead's last name |
+| D — Company | Company name |
+| E — Email | Lead's email address |
+| F — Website | Company website (used to find Trustpilot profile) |
 
-## Usage
+> The sheet is auto-formatted on first connection: frozen header row, column widths, dark header style, alternating row colors, and borders.
 
-### Process Specific Rows
-```bash
-# Process rows 18-20 (3 rows starting from 18)
-node src/index.js --start=18 --limit=3
+### Emails tab — Output
 
-# Process rows 25-30
-node src/index.js --start=25 --limit=6
+| Column | Description |
+|---|---|
+| Company | Company name |
+| CEO Name | First name used in email salutation |
+| CEO Email | Destination email address |
+| Trustpilot URL | Scraped profile URL |
+| Pain Points | Operational issues identified by Gemini |
+| Email Draft (A/B/C) | Three generated variants |
+| Status | Draft / Scheduled / Sent |
+| Scheduled Time | Formatted send time (if scheduled) |
 
-# Process single row for testing
-node src/index.js --start=18 --limit=1
-```
+---
 
-### Other Commands
-```bash
-# Test mode (first company only)
-node src/index.js --test
+## Email Generation — A/B Variants
 
-# Process all companies from row 18
-node src/index.js
+All three variants are generated in parallel using `gemini-2.5-flash`. Each targets a different conversion psychology.
 
-# Regenerate all existing emails with updated template
-node src/regenerate-emails.js
+### Variant A — Direct Value
 
-# Apply/refresh table formatting
-node src/format-sheet.js
-```
+**Strategy:** Lead with the observed pattern, offer something specific and tangible.
+
+**Structure:** Pattern observation → Specific insight → Direct value offer
+
+**Example tone:**
+> 12 delivery complaints in 60 days. Concentrated in Nov–Dec.
+>
+> **_"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."_**
+>
+> Peak season fulfillment. I've seen 3 specific fixes that cut this 70%.
+>
+> Want the breakdown?
+
+---
+
+### Variant B — Curiosity Gap
+
+**Strategy:** Create intrigue with a data-driven question; invite exploration.
+
+**Structure:** Intriguing question → Data point → Pattern insight → Follow-up question
+
+**Example tone:**
+> What changed between October (4.2★) and December (1.8★)?
+>
+> **_"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."_**
+>
+> 18 complaints mention Black Friday week specifically.
+>
+> Seeing the same pattern on your end?
+
+---
+
+### Variant C — Peer Comparison
+
+**Strategy:** Non-judgmental peer observation; collaborative, not consultative.
+
+**Structure:** Observation → Relatable shared experience → Collaborative question
+
+**Example tone:**
+> Noticed 18 delivery issues cluster around holiday weeks.
+>
+> **_"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."_**
+>
+> Same thing hit us during peak season — took 3 tries to get it right.
+>
+> What's your current approach during spikes?
+
+---
+
+### Email format rules (all variants)
+
+- Subject: 2–3 lowercase words (e.g., `delivery pattern`, `peak season`)
+- Body: 50–85 words
+- Sentences: 10–15 words max
+- One review quote wrapped in `<b><i>"..."</i></b>`
+- CTA question on its own line with a blank line before it
+- No em dashes, no salesy language, peer-to-peer tone
+- Includes user's Gmail signature
+
+---
+
+## Scheduled Sending
+
+After drafts are created, the scheduler queues emails for delivery:
+
+- Configurable business hours (start time, end time, timezone)
+- Randomized 15–25 minute intervals between sends to appear natural
+- On server restart, emails with `Scheduled` status in the Emails tab are recovered automatically — future times re-queue normally; past times within 7 days roll forward to the same clock time; times older than 7 days are marked `Expired`
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/settings` | Return current config (API key masked) |
+| POST | `/api/settings` | Save Gemini key and/or Sheet ID |
+| POST | `/api/settings/test-gemini` | Validate Gemini API key |
+| POST | `/api/settings/test-sheet` | Validate Sheet connection and trigger auto-format |
+| POST | `/api/settings/gmail-auth` | Trigger Gmail OAuth flow |
+| POST | `/api/settings/gmail-disconnect` | Remove Gmail token |
+| GET | `/api/settings/gmail-send-as` | List available send-as addresses |
+| POST | `/api/settings/send-from` | Save preferred send-from email |
+| GET | `/api/leads` | Fetch all leads from Sheet1 |
+| POST | `/api/import-leads` | CSV import (multipart/form-data, append or replace mode) |
+| POST | `/api/process` | Start processing selected leads |
+| POST | `/api/stop` | Stop the active processing job |
+| GET | `/api/status` | Poll current job progress and per-lead status |
+
+---
 
 ## File Descriptions
 
-### src/server.js
-Express web server providing the browser-based UI. Handles API endpoints for starting/stopping jobs and polling status.
-
-**Endpoints:**
-- `GET /api/status` - Get current job status
-- `POST /api/start` - Start processing (body: `{startRow, endRow}`)
-- `POST /api/stop` - Stop current job
-
-### public/index.html
-Modern web interface with real-time progress tracking, activity log, and statistics.
-
-### src/index.js
-Main CLI orchestrator. Parses arguments, reads companies, processes each through the pipeline, writes results.
-
-**Arguments:**
-- `--start=N` - Start from row N (default: 18)
-- `--limit=N` - Process only N companies
-- `--test` - Process only first company
-
-### src/sheets.js
-Google Sheets API integration.
-
-**Functions:**
-- `readCompanies(startRow, limit)` - Read leads from Sheet1
-- `writeOutreach(data)` - Write results to Emails tab
-- `markAsProcessed(rowNumber)` - Set Column A to "email"
-- `updateStatus(company, status)` - Update status column
-
-### src/trustpilot.js
-Puppeteer-based Trustpilot scraper.
-
-**Functions:**
-- `findTrustpilotPage(website, companyName)` - Find company's Trustpilot URL
-- `scrapeReviews(url, stars, maxReviews)` - Scrape reviews by star rating
-- `extractPainPoints(reviews)` - Basic keyword-based pain point extraction
-
-### src/emailGen.js
-Gemini AI integration for email generation.
-
-**Functions:**
-- `generateEmail({company, ceoName, ceoEmail, painPoints, reviews, website})` - Generate cold email
-- `analyzeReviewsWithAI(reviews, company)` - AI analysis of technical pain points
-
-### src/format-sheet.js
-Applies table formatting to Emails tab (headers, borders, colors, text wrap).
-
-### src/regenerate-emails.js
-Re-scrapes and regenerates emails for all existing entries in Emails tab.
-
-## Email Generation Strategy
-
-The email generator uses proven cold email techniques:
-
-### Structure
 ```
-Subject: [4-6 words, lowercase, curiosity-driven]
-
-[Pattern interrupt opening - no greeting]
-
-[Proof paragraph with quoted reviews]
-
-[Technical diagnosis of root cause]
-
-[One-line credential]
-
-[Low-friction CTA question]
-
-- Dan
-
-PS - [Optional hook]
+trustpilot-outreach-automation/
+├── public/
+│   └── index.html              # Single-page web UI (dark theme, vanilla JS)
+├── src/
+│   ├── server.js               # Express server, all API endpoints, job state management
+│   ├── sheets.js               # Google Sheets read/write via service account
+│   ├── trustpilot.js           # Puppeteer scraper — finds profile, scrapes 1–2★ reviews
+│   ├── emailGen.js             # Gemini AI email generation — 3 A/B variants in parallel
+│   ├── gmail.js                # Gmail OAuth2 client, draft creation, send-as aliases
+│   ├── draftEmails.js          # CLI script to create Gmail drafts from Emails tab
+│   ├── regenerate-emails.js    # CLI script to re-run email generation for a specific row
+│   ├── format-sheet.js         # CLI script to manually apply Sheet1 formatting
+│   └── index.js                # CLI entry point (batch processing without web UI)
+├── directives/
+│   └── trustpilot_outreach.md  # SOP documentation for the pipeline
+├── .env.example                # Environment variable template
+├── demo.gif                    # Pipeline demo animation
+└── package.json
 ```
 
-### Key Principles
-- **No fluff**: No "I hope this finds you well"
-- **Specificity**: Quote actual reviews
-- **Technical framing**: "Your OMS isn't triggering carrier API" not "bad service"
-- **Low-friction CTA**: "Worth a look?" not "Let's schedule a call"
-- **Short**: 60-100 words body
+---
 
-## Customization
+## NPM Scripts
 
-### Change Email Style
-Edit `src/emailGen.js` - modify the prompt in `generateEmail()` function.
+| Script | Description |
+|---|---|
+| `npm run web` | Start the web UI server at http://localhost:3000 |
+| `npm start` | CLI batch processor (no web UI) |
+| `npm run format` | Re-apply Sheet1 formatting |
+| `npm run regenerate` | Regenerate emails for a specific row |
+| `npm run draft-emails` | Create Gmail drafts from the Emails tab |
 
-### Change Pain Point Analysis
-Edit `src/emailGen.js` - modify the prompt in `analyzeReviewsWithAI()` function.
+---
 
-### Change Sheet Columns
-Edit `src/sheets.js`:
-- `readCompanies()` - Change column indices for input
-- `writeOutreach()` - Change column structure for output
+## Secrets — Gitignored Files
 
-### Change Trustpilot Scraping
-Edit `src/trustpilot.js`:
-- `scrapeReviews()` - Modify selectors or star ratings
-- `findTrustpilotPage()` - Modify search logic
+These files contain credentials and are excluded from version control:
 
-## Status Values
+```
+.env
+credentials.json
+gmail-credentials.json
+gmail-token.json
+settings.json
+```
 
-| Status | Meaning |
-|--------|---------|
-| Ready for review | Email generated successfully |
-| Skipped - No Trustpilot | Company not found on Trustpilot |
-| Skipped - No negative reviews | No 1-2 star reviews found |
-| Failed | Error during processing |
-
-## Rate Limiting
-
-- 3 second delay between companies
-- 1 second delay between star rating pages
-- Respectful scraping with realistic user agent
+---
 
 ## Troubleshooting
 
-### "Google Sheets API has not been used"
-Enable the Sheets API for your project at:
-`https://console.developers.google.com/apis/api/sheets.googleapis.com`
+### "Skipped - No Trustpilot" for many leads
 
-### "Unable to parse range"
-Make sure Sheet1 exists and has data in the expected columns.
+The scraper searches by company website domain. If the domain doesn't match the Trustpilot profile, the profile may not be found. This is expected behavior, not a failure.
 
-### "No Trustpilot page found"
-The company may not have a Trustpilot profile, or the website URL format doesn't match.
+### Timeout errors / "Failed" status
 
-### Gemini API errors
-Check your API key is valid and has quota remaining.
+Trustpilot pages can be slow. If you see multiple failures:
+
+- Process in smaller batches (5–10 leads at a time)
+- Wait 60–90 seconds between batches
+- Avoid peak traffic hours
+
+### Gmail OAuth won't complete
+
+Confirm `gmail-credentials.json` is in the project root and the OAuth client type is **Desktop app** (not Web). The flow opens a browser window — allow it through your firewall if needed.
+
+### Gemini API key invalid
+
+Verify the key at [aistudio.google.com](https://aistudio.google.com) and confirm `gemini-2.5-flash` is available in your region.
+
+### Sheet connection fails
+
+Confirm the service account email shown in the Setup tab has been added as an **Editor** on your Google Sheet.
+
+### Scheduled emails not recovered after restart
+
+The server reads `Scheduled` status from the Emails tab on startup. If a scheduled time is more than 7 days in the past, it is marked `Expired` and will not send.
+
+### Rate limiting from Trustpilot (429 errors)
+
+Reduce batch size to 3–5 leads and increase the delay between batches. Processing during off-peak hours reduces the likelihood of blocks.
+
+---
 
 ## Dependencies
 
-- `express` - Web server for UI
-- `googleapis` - Google Sheets API
-- `puppeteer` - Web scraping
-- `@google/generative-ai` - Gemini AI
-- `dotenv` - Environment variables
+| Package | Version | Purpose |
+|---|---|---|
+| `express` | ^4.22.1 | HTTP server and API routing |
+| `puppeteer` | ^23.6.0 | Headless browser for Trustpilot scraping |
+| `@google/generative-ai` | ^0.21.0 | Gemini AI client for email generation |
+| `googleapis` | ^144.0.0 | Google Sheets and Gmail API clients |
+| `multer` | ^2.1.1 | Multipart form handling for CSV uploads |
+| `dotenv` | ^16.4.5 | Environment variable loading |

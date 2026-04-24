@@ -295,14 +295,47 @@
       box-shadow: 0 2px 12px rgba(255,255,255,0.02);
     }
 
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 0 2px 2px 0;
+      background: var(--muted-foreground);
+      opacity: 0.3;
+    }
+    .kpi-card.kpi-success::after { background: var(--success); opacity: 0.7; }
+    .kpi-card.kpi-warning::after { background: var(--warning); opacity: 0.7; }
+    .kpi-card.kpi-error::after { background: var(--error); opacity: 0.7; }
+    .kpi-card.kpi-info::after { background: var(--chart-2); opacity: 0.7; }
+
+    .kpi-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
     .kpi-label {
       font-size: 11px;
       font-weight: 500;
       color: var(--muted-foreground);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 6px;
     }
+
+    .kpi-icon {
+      width: 18px;
+      height: 18px;
+      color: var(--muted-foreground);
+      opacity: 0.4;
+    }
+    .kpi-success .kpi-icon { color: var(--success); opacity: 0.6; }
+    .kpi-warning .kpi-icon { color: var(--warning); opacity: 0.6; }
+    .kpi-error .kpi-icon { color: var(--error); opacity: 0.6; }
+    .kpi-info .kpi-icon { color: var(--chart-2); opacity: 0.6; }
 
     .kpi-value {
       font-size: 28px;
@@ -414,6 +447,155 @@
       background-repeat: no-repeat;
       background-position: right 12px center;
       padding-right: 36px;
+    }
+
+    /* ── Custom Select (replaces native <select>) ── */
+    .custom-select {
+      position: relative;
+      width: 100%;
+    }
+    .custom-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      background: var(--input);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-xs);
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--foreground);
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      user-select: none;
+      line-height: 1.4;
+    }
+    .custom-select-trigger:hover {
+      border-color: rgba(255,255,255,0.14);
+    }
+    .custom-select-trigger:focus,
+    .custom-select.open .custom-select-trigger {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px rgba(82,82,82,0.25);
+    }
+    .custom-select-trigger .cs-chevron {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      margin-left: 8px;
+      opacity: 0.5;
+      transition: transform 0.2s;
+    }
+    .custom-select.open .cs-chevron {
+      transform: rotate(180deg);
+    }
+    .custom-select-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #141414;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 100;
+      padding: 4px;
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--muted) transparent;
+    }
+    .custom-select.open .custom-select-dropdown {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .custom-select-dropdown::-webkit-scrollbar { width: 5px; }
+    .custom-select-dropdown::-webkit-scrollbar-track { background: transparent; }
+    .custom-select-dropdown::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    .custom-select-dropdown::-webkit-scrollbar-thumb:hover { background: var(--ring); }
+    .cs-option {
+      padding: 8px 10px;
+      font-size: 13px;
+      color: var(--foreground);
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: background 0.1s;
+      line-height: 1.4;
+    }
+    .cs-option:hover {
+      background: rgba(255,255,255,0.06);
+    }
+    .cs-option.selected {
+      background: rgba(58,129,246,0.12);
+      color: var(--chart-2);
+    }
+    .cs-group-label {
+      padding: 8px 10px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+    .cs-group-label:not(:first-child) {
+      margin-top: 4px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-top: 8px;
+    }
+
+    /* Make date/time inputs open picker on click anywhere */
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"] {
+      cursor: pointer;
+      position: relative;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* Tooltip */
+    .tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+    .tooltip-wrap .tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: #141414;
+      color: var(--muted-foreground);
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 6px 10px;
+      border-radius: var(--radius-xs);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      max-width: 260px;
+      width: max-content;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 50;
+    }
+    .tooltip-wrap:hover .tooltip {
+      opacity: 1;
     }
 
     .field-row {
@@ -783,7 +965,7 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      table-layout: auto;
+      table-layout: fixed;
     }
 
     .tbl thead th {
@@ -796,18 +978,24 @@
       letter-spacing: 0.04em;
       border-bottom: 1px solid var(--border);
       background: var(--background);
+      position: sticky;
+      top: 0;
+      z-index: 2;
     }
 
     .tbl tbody td {
       padding: 10px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       color: var(--muted-foreground);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .tbl tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
     .tbl tbody tr.lead-selected { background: rgba(58, 129, 246, 0.06); }
     .tbl tbody tr.lead-processing { background: rgba(59, 130, 246, 0.08); }
-    .tbl tbody tr.lead-done { opacity: 0.65; }
+    .tbl tbody tr.lead-done { opacity: 0.55; }
 
     .lead-status {
       display: inline-flex;
@@ -824,7 +1012,7 @@
     .lead-status-done { background: var(--success-dim); color: var(--success); }
     .lead-status-skipped { background: var(--warning-dim); color: var(--warning); }
     .lead-status-failed { background: var(--error-dim); color: var(--error); }
-    .lead-status-none { color: var(--muted-foreground); opacity: 0.5; }
+    .lead-status-none { color: var(--muted-foreground); opacity: 0.4; font-size: 10px; }
 
     .lead-detail {
       display: block;
@@ -971,6 +1159,18 @@
       font-family: var(--font-mono);
       color: var(--foreground);
     }
+
+    .confirm-modal-footer .btn {
+      flex: 1;
+      min-width: 0;
+    }
+    #confirmModalReplace {
+      color: var(--error);
+      border-color: rgba(239,68,68,0.25);
+    }
+    #confirmModalReplace:hover {
+      background: rgba(239,68,68,0.08);
+    }
     /* Clickable truncated detail */
     .lead-sched-time {
       cursor: pointer;
@@ -1015,8 +1215,9 @@
         <button class="detail-modal-close" onclick="closeConfirmModal()">&times;</button>
       </div>
       <div class="detail-modal-body" id="confirmModalBody" style="white-space: normal; font-family: inherit; font-size: 13px; color: var(--muted-foreground);"></div>
-      <div style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border);">
-        <button class="btn btn-ghost btn-sm" onclick="closeConfirmModal()">Cancel</button>
+      <div class="confirm-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border);">
+        <button class="btn btn-ghost btn-sm" id="confirmModalCancel" onclick="closeConfirmModal()">Cancel</button>
+        <button class="btn btn-ghost btn-sm hidden" id="confirmModalReplace">Replace All</button>
         <button class="btn btn-primary btn-sm" id="confirmModalAction">Confirm</button>
       </div>
     </div>
@@ -1137,9 +1338,13 @@
                 <label class="field-label">Send Emails From</label>
                 <div class="field-row">
                   <div class="field">
-                    <select id="sendFromEmail" onchange="saveSendFrom()">
-                      <option value="">Loading addresses...</option>
-                    </select>
+                    <div class="custom-select" id="sendFromEmail" data-value="">
+                      <div class="custom-select-trigger" tabindex="0">
+                        <span class="cs-label" style="color: var(--muted-foreground); opacity: 0.6;">Loading addresses...</span>
+                        <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </div>
+                      <div class="custom-select-dropdown"></div>
+                    </div>
                   </div>
                   <span class="field-status pending" id="sendFromStatus"></span>
                 </div>
@@ -1194,20 +1399,32 @@
 
         <!-- KPI Row -->
         <div class="kpi-row" id="processKpis">
-          <div class="kpi-card">
-            <div class="kpi-label">Processed</div>
+          <div class="kpi-card kpi-info">
+            <div class="kpi-top">
+              <div class="kpi-label">Processed</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </div>
             <div class="kpi-value" id="kpiProcessed">0</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Successful</div>
+          <div class="kpi-card kpi-success">
+            <div class="kpi-top">
+              <div class="kpi-label">Successful</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
             <div class="kpi-value accent" id="successCount">0</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Skipped</div>
+          <div class="kpi-card kpi-warning">
+            <div class="kpi-top">
+              <div class="kpi-label">Skipped</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+            </div>
             <div class="kpi-value warning" id="skippedCount">0</div>
           </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Failed</div>
+          <div class="kpi-card kpi-error">
+            <div class="kpi-top">
+              <div class="kpi-label">Failed</div>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
             <div class="kpi-value error" id="failedCount">0</div>
           </div>
         </div>
@@ -1228,13 +1445,15 @@
         <!-- Leads Table -->
         <div class="panel">
           <div class="panel-header">
-            <span class="panel-title">Leads</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="panel-title">Leads</span>
+              <span style="font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums;" id="leadsCountLabel"></span>
+            </div>
             <span class="badge badge-idle" id="statusBadge">Idle</span>
           </div>
           <div class="panel-body" style="padding: 0;">
             <!-- Filter bar -->
             <div id="leadsFilterBar" style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
-              <span style="font-size: 11px; font-weight: 500; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em;">Filter</span>
               <div class="btn-toggle-group">
                 <button class="btn-toggle active" onclick="setLeadFilter('all', this)">All</button>
                 <button class="btn-toggle" onclick="setLeadFilter('done', this)">Done</button>
@@ -1242,8 +1461,9 @@
                 <button class="btn-toggle" onclick="setLeadFilter('failed', this)">Failed</button>
                 <button class="btn-toggle" onclick="setLeadFilter('scheduled', this)">Scheduled</button>
               </div>
-              <div style="margin-left: auto; display: flex; align-items: center; gap: 6px;">
-                <input type="text" id="leadSearchInput" placeholder="Search leads..." oninput="applyLeadFilters()" style="width: 180px; padding: 5px 10px; font-size: 12px; height: 28px; border-radius: var(--radius-xs);">
+              <div style="margin-left: auto; position: relative; display: flex; align-items: center;">
+                <svg style="position: absolute; left: 10px; width: 14px; height: 14px; color: var(--muted-foreground); opacity: 0.5; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="leadSearchInput" placeholder="Search..." oninput="applyLeadFilters()" style="width: 180px; padding: 5px 10px 5px 30px; font-size: 12px; height: 30px; border-radius: var(--radius-xs);">
               </div>
             </div>
             <div id="leadsLoading" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
@@ -1252,42 +1472,43 @@
             <div id="leadsEmpty" class="hidden" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
               No leads found. Make sure leads are in Sheet1 (columns A-F).
             </div>
-            <div id="leadsTableWrap" class="hidden" style="overflow-x: auto;">
+            <div id="leadsTableWrap" class="hidden" style="overflow-x: auto; overflow-y: auto; max-height: 520px;">
               <table class="tbl" id="leadsTable">
                 <thead>
                   <tr>
                     <th style="width: 36px; padding-left: 14px;">
                       <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)" style="accent-color: var(--chart-2); cursor: pointer;">
                     </th>
-                    <th style="width: 48px;">#</th>
-                    <th>Name</th>
-                    <th>Company</th>
-                    <th>Email</th>
-                    <th>Website</th>
-                    <th style="width: 130px;">Status</th>
-                    <th style="width: 150px;">Scheduled</th>
-                    <th style="width: 180px;">Draft</th>
-                    <th style="width: 80px;">Actions</th>
+                    <th style="width: 36px;">#</th>
+                    <th style="width: 12%;">Name</th>
+                    <th style="width: 12%;">Company</th>
+                    <th style="width: 18%;">Email</th>
+                    <th style="width: 16%;">Website</th>
+                    <th style="width: 10%;">Status</th>
+                    <th style="width: 10%;">Scheduled</th>
+                    <th style="width: 14%;">Draft</th>
+                    <th style="width: 64px;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="leadsBody"></tbody>
               </table>
             </div>
           </div>
-          <div class="panel-footer" id="leadsActions" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);">
+          <div class="panel-footer" id="leadsActions" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); gap: 12px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 12px; color: var(--muted-foreground);" id="selectedCount">0 selected</span>
+              <span style="font-size: 12px; color: var(--muted-foreground); min-width: 80px; flex-shrink: 0; font-variant-numeric: tabular-nums;" id="selectedCount">0 selected</span>
               <div class="btn-toggle-group">
-                <button class="btn-toggle active" id="selUnprocessed" onclick="selectUnprocessed()">Unprocessed</button>
+                <button class="btn-toggle" id="selUnprocessed" onclick="selectUnprocessed()">Unprocessed</button>
                 <button class="btn-toggle" id="selPage" onclick="selectPage()">Page</button>
                 <button class="btn-toggle" id="selAll" onclick="selectAllLeads()">All</button>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Sync leads from sheet">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Pull latest leads from Google Sheets">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                 Sync
               </button>
-            </div>
-            <div style="display: flex; gap: 8px;">
+              <span style="width: 1px; height: 16px; background: rgba(255,255,255,0.08);"></span>
               <button class="btn btn-primary btn-sm" id="startBtn" onclick="startProcessing()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 Process Selected
@@ -1299,14 +1520,20 @@
 
         <!-- Activity Log -->
         <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">Activity Log</span>
+          <div class="panel-header collapsible collapsed" onclick="togglePanel(this)">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="panel-title">Activity Log</span>
+              <span style="font-size: 11px; color: var(--muted-foreground); opacity: 0.6;" id="logCountBadge"></span>
+            </div>
+            <svg class="panel-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div class="panel-body" style="padding: 12px;">
-            <div class="log" id="logContainer">
-              <div class="log-line">
-                <span class="log-ts">--:--:--</span>
-                <span class="log-msg">System initialized. Ready for input.</span>
+          <div class="panel-body-wrap collapsed">
+            <div class="panel-body" style="padding: 12px;">
+              <div class="log" id="logContainer">
+                <div class="log-line">
+                  <span class="log-ts">--:--:--</span>
+                  <span class="log-msg">Ready.</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1339,7 +1566,10 @@
                 <label class="field-label" for="testEmail">Recipient Email</label>
                 <input type="text" id="testEmail" placeholder="you@email.com">
               </div>
-              <button class="btn btn-ghost" onclick="createTestDraft()" style="align-self: flex-end;">Create Test Draft</button>
+              <span class="tooltip-wrap" style="align-self: flex-end;">
+                <button class="btn btn-ghost" onclick="createTestDraft()">Create Test Draft</button>
+                <span class="tooltip">Creates a Gmail draft using the first ready lead — check your drafts to preview before sending</span>
+              </span>
             </div>
             <div id="testDraftResult" class="hidden" style="margin-top: 10px; font-size: 13px;"></div>
           </div>
@@ -1351,69 +1581,88 @@
           <div class="panel-body">
             <div class="field-row">
               <div class="field">
-                <label class="field-label" for="scheduleDate">Date</label>
-                <input type="date" id="scheduleDate">
+                <label class="field-label">Date</label>
+                <div class="custom-select" id="scheduleDateSelect" data-value="">
+                  <div class="custom-select-trigger" tabindex="0">
+                    <span class="cs-label">Loading...</span>
+                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div class="custom-select-dropdown"></div>
+                </div>
               </div>
               <div class="field">
-                <label class="field-label" for="timezone">Timezone</label>
-                <select id="timezone">
-                  <optgroup label="Americas">
-                    <option value="America/New_York" selected>New York (ET)</option>
-                    <option value="America/Chicago">Chicago (CT)</option>
-                    <option value="America/Denver">Denver (MT)</option>
-                    <option value="America/Los_Angeles">Los Angeles (PT)</option>
-                    <option value="America/Toronto">Toronto (ET)</option>
-                    <option value="America/Mexico_City">Mexico City (CST)</option>
-                    <option value="America/Bogota">Bogota (COT)</option>
-                    <option value="America/Sao_Paulo">Sao Paulo (BRT)</option>
-                    <option value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</option>
-                  </optgroup>
-                  <optgroup label="Europe">
-                    <option value="Europe/London">London (GMT/BST)</option>
-                    <option value="Europe/Paris">Paris (CET/CEST)</option>
-                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-                    <option value="Europe/Madrid">Madrid (CET/CEST)</option>
-                    <option value="Europe/Rome">Rome (CET/CEST)</option>
-                    <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
-                    <option value="Europe/Bucharest">Bucharest (EET/EEST)</option>
-                    <option value="Europe/Moscow">Moscow (MSK)</option>
-                    <option value="Europe/Istanbul">Istanbul (TRT)</option>
-                  </optgroup>
-                  <optgroup label="Africa">
-                    <option value="Africa/Lagos">Lagos (WAT)</option>
-                    <option value="Africa/Cairo">Cairo (EET)</option>
-                    <option value="Africa/Johannesburg">Johannesburg (SAST)</option>
-                    <option value="Africa/Nairobi">Nairobi (EAT)</option>
-                    <option value="Africa/Casablanca">Casablanca (WET)</option>
-                  </optgroup>
-                  <optgroup label="Asia">
-                    <option value="Asia/Dubai">Dubai (GST)</option>
-                    <option value="Asia/Kolkata">Mumbai / Delhi (IST)</option>
-                    <option value="Asia/Singapore">Singapore (SGT)</option>
-                    <option value="Asia/Shanghai">Shanghai / Beijing (CST)</option>
-                    <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
-                    <option value="Asia/Tokyo">Tokyo (JST)</option>
-                    <option value="Asia/Seoul">Seoul (KST)</option>
-                    <option value="Asia/Bangkok">Bangkok (ICT)</option>
-                    <option value="Asia/Jakarta">Jakarta (WIB)</option>
-                  </optgroup>
-                  <optgroup label="Oceania">
-                    <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
-                    <option value="Australia/Melbourne">Melbourne (AEST/AEDT)</option>
-                    <option value="Australia/Perth">Perth (AWST)</option>
-                    <option value="Pacific/Auckland">Auckland (NZST/NZDT)</option>
-                  </optgroup>
-                </select>
+                <label class="field-label">Timezone</label>
+                <div class="custom-select" id="timezoneSelect" data-value="America/New_York">
+                  <div class="custom-select-trigger" tabindex="0">
+                    <span class="cs-label">New York (ET)</span>
+                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div class="custom-select-dropdown">
+                    <div class="cs-group-label">Americas</div>
+                    <div class="cs-option selected" data-value="America/New_York">New York (ET)</div>
+                    <div class="cs-option" data-value="America/Chicago">Chicago (CT)</div>
+                    <div class="cs-option" data-value="America/Denver">Denver (MT)</div>
+                    <div class="cs-option" data-value="America/Los_Angeles">Los Angeles (PT)</div>
+                    <div class="cs-option" data-value="America/Toronto">Toronto (ET)</div>
+                    <div class="cs-option" data-value="America/Mexico_City">Mexico City (CST)</div>
+                    <div class="cs-option" data-value="America/Bogota">Bogota (COT)</div>
+                    <div class="cs-option" data-value="America/Sao_Paulo">Sao Paulo (BRT)</div>
+                    <div class="cs-option" data-value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</div>
+                    <div class="cs-group-label">Europe</div>
+                    <div class="cs-option" data-value="Europe/London">London (GMT/BST)</div>
+                    <div class="cs-option" data-value="Europe/Paris">Paris (CET/CEST)</div>
+                    <div class="cs-option" data-value="Europe/Berlin">Berlin (CET/CEST)</div>
+                    <div class="cs-option" data-value="Europe/Madrid">Madrid (CET/CEST)</div>
+                    <div class="cs-option" data-value="Europe/Rome">Rome (CET/CEST)</div>
+                    <div class="cs-option" data-value="Europe/Amsterdam">Amsterdam (CET/CEST)</div>
+                    <div class="cs-option" data-value="Europe/Bucharest">Bucharest (EET/EEST)</div>
+                    <div class="cs-option" data-value="Europe/Moscow">Moscow (MSK)</div>
+                    <div class="cs-option" data-value="Europe/Istanbul">Istanbul (TRT)</div>
+                    <div class="cs-group-label">Africa</div>
+                    <div class="cs-option" data-value="Africa/Lagos">Lagos (WAT)</div>
+                    <div class="cs-option" data-value="Africa/Cairo">Cairo (EET)</div>
+                    <div class="cs-option" data-value="Africa/Johannesburg">Johannesburg (SAST)</div>
+                    <div class="cs-option" data-value="Africa/Nairobi">Nairobi (EAT)</div>
+                    <div class="cs-option" data-value="Africa/Casablanca">Casablanca (WET)</div>
+                    <div class="cs-group-label">Asia</div>
+                    <div class="cs-option" data-value="Asia/Dubai">Dubai (GST)</div>
+                    <div class="cs-option" data-value="Asia/Kolkata">Mumbai / Delhi (IST)</div>
+                    <div class="cs-option" data-value="Asia/Singapore">Singapore (SGT)</div>
+                    <div class="cs-option" data-value="Asia/Shanghai">Shanghai / Beijing (CST)</div>
+                    <div class="cs-option" data-value="Asia/Hong_Kong">Hong Kong (HKT)</div>
+                    <div class="cs-option" data-value="Asia/Tokyo">Tokyo (JST)</div>
+                    <div class="cs-option" data-value="Asia/Seoul">Seoul (KST)</div>
+                    <div class="cs-option" data-value="Asia/Bangkok">Bangkok (ICT)</div>
+                    <div class="cs-option" data-value="Asia/Jakarta">Jakarta (WIB)</div>
+                    <div class="cs-group-label">Oceania</div>
+                    <div class="cs-option" data-value="Australia/Sydney">Sydney (AEST/AEDT)</div>
+                    <div class="cs-option" data-value="Australia/Melbourne">Melbourne (AEST/AEDT)</div>
+                    <div class="cs-option" data-value="Australia/Perth">Perth (AWST)</div>
+                    <div class="cs-option" data-value="Pacific/Auckland">Auckland (NZST/NZDT)</div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="field-row" style="margin-top: 12px;">
               <div class="field">
-                <label class="field-label" for="scheduleStartTime">Start Time</label>
-                <input type="time" id="scheduleStartTime" value="09:00">
+                <label class="field-label">Start Time</label>
+                <div class="custom-select" id="startTimeSelect" data-value="09:00">
+                  <div class="custom-select-trigger" tabindex="0">
+                    <span class="cs-label">9:00 AM</span>
+                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div class="custom-select-dropdown"></div>
+                </div>
               </div>
               <div class="field">
-                <label class="field-label" for="scheduleEndTime">End Time</label>
-                <input type="time" id="scheduleEndTime" value="17:00">
+                <label class="field-label">End Time</label>
+                <div class="custom-select" id="endTimeSelect" data-value="17:00">
+                  <div class="custom-select-trigger" tabindex="0">
+                    <span class="cs-label">5:00 PM</span>
+                    <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                  <div class="custom-select-dropdown"></div>
+                </div>
               </div>
             </div>
             <div class="field-row" style="margin-top: 12px;">
@@ -1508,6 +1757,82 @@
   </div>
 
   <script>
+    // ============ CUSTOM SELECT ============
+    function csGetValue(id) {
+      const el = document.getElementById(id);
+      return el ? el.dataset.value : '';
+    }
+    function csSetValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.dataset.value = value;
+      const opt = el.querySelector(`.cs-option[data-value="${CSS.escape(value)}"]`);
+      const label = el.querySelector('.cs-label');
+      if (opt && label) {
+        label.textContent = opt.textContent;
+        label.style.color = '';
+        label.style.opacity = '';
+      }
+      el.querySelectorAll('.cs-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+    }
+    function csSetOptions(id, options, selectedValue) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const dropdown = el.querySelector('.custom-select-dropdown');
+      dropdown.innerHTML = options.map(o =>
+        `<div class="cs-option${o.value === selectedValue ? ' selected' : ''}" data-value="${esc(o.value)}">${esc(o.label)}</div>`
+      ).join('');
+      if (selectedValue) {
+        el.dataset.value = selectedValue;
+        const label = el.querySelector('.cs-label');
+        const match = options.find(o => o.value === selectedValue);
+        if (match && label) { label.textContent = match.label; label.style.color = ''; label.style.opacity = ''; }
+      } else if (options.length > 0) {
+        csSetValue(id, options[0].value);
+      }
+      _csBindOptions(el);
+    }
+    function _csBindOptions(el) {
+      el.querySelectorAll('.cs-option').forEach(opt => {
+        opt.onclick = (e) => {
+          e.stopPropagation();
+          csSetValue(el.id, opt.dataset.value);
+          el.classList.remove('open');
+          el._onChange && el._onChange(opt.dataset.value);
+        };
+      });
+    }
+    function csOnChange(id, fn) {
+      const el = document.getElementById(id);
+      if (el) el._onChange = fn;
+    }
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.custom-select.open').forEach(sel => {
+        if (!sel.contains(e.target)) sel.classList.remove('open');
+      });
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.custom-select').forEach(sel => {
+        const trigger = sel.querySelector('.custom-select-trigger');
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Close other open selects
+          document.querySelectorAll('.custom-select.open').forEach(s => { if (s !== sel) s.classList.remove('open'); });
+          sel.classList.toggle('open');
+          // Scroll selected into view
+          if (sel.classList.contains('open')) {
+            const selected = sel.querySelector('.cs-option.selected');
+            if (selected) selected.scrollIntoView({ block: 'nearest' });
+          }
+        });
+        trigger.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger.click(); }
+          if (e.key === 'Escape') sel.classList.remove('open');
+        });
+        _csBindOptions(sel);
+      });
+    });
+
     // ============ PAGE NAVIGATION ============
     function showPage(page) {
       document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
@@ -1739,15 +2064,37 @@
       fileInput.onchange = async () => {
         if (!fileInput.files.length) return;
         const fileName = fileInput.files[0].name;
-        const confirmed = await openConfirmModal(
-          'Replace Lead List?',
-          `<strong>${esc(fileName)}</strong> will be appended to your Google Sheet.<br><br>` +
-          'This will add new rows to the existing lead list. Duplicate entries are not automatically filtered.' +
-          '<br><br><span style="color: var(--muted-foreground);">Only leads with both <strong>email</strong> and <strong>website</strong> will be imported. Others will be skipped.</span>' +
-          '<br><span style="color: var(--warning);">CSV format: firstName, lastName, company, email, website.</span>'
-        );
-        if (confirmed) {
-          await importAndSync();
+
+        // Build a 3-option modal: Replace / Append / Cancel
+        const body =
+          `<strong>${esc(fileName)}</strong>` +
+          '<br><br><span style="color: var(--muted-foreground);">Only leads with both <strong>email</strong> and <strong>website</strong> will be imported.</span>' +
+          '<br><span style="color: var(--muted-foreground);">Duplicates (same email) are automatically skipped when appending.</span>' +
+          '<br><br><span style="color: var(--warning);">CSV format: firstName, lastName, company, email, website.</span>';
+
+        // Show modal with Replace / Append buttons
+        document.getElementById('confirmModalTitle').textContent = 'Import Leads';
+        document.getElementById('confirmModalBody').innerHTML = body;
+        document.getElementById('confirmModal').classList.add('open');
+
+        const actionBtn = document.getElementById('confirmModalAction');
+        const cancelBtn = document.getElementById('confirmModalCancel');
+        const replaceBtn = document.getElementById('confirmModalReplace');
+
+        replaceBtn.classList.remove('hidden');
+        replaceBtn.textContent = 'Replace All';
+        actionBtn.textContent = 'Append New';
+
+        const result = await new Promise(resolve => {
+          _confirmResolve = null;
+          const cleanup = () => { replaceBtn.classList.add('hidden'); };
+          replaceBtn.onclick = () => { cleanup(); resolve('replace'); closeConfirmModal(); };
+          actionBtn.onclick = () => { cleanup(); resolve('append'); closeConfirmModal(); };
+          cancelBtn.onclick = () => { cleanup(); resolve(null); closeConfirmModal(); };
+        });
+
+        if (result) {
+          await importAndSync(result);
         } else {
           fileInput.value = '';
         }
@@ -1755,7 +2102,7 @@
       fileInput.click();
     }
 
-    async function importAndSync() {
+    async function importAndSync(mode) {
       const fileInput = document.getElementById('importFile');
       const resultEl = document.getElementById('importResult');
       const btn = document.getElementById('importBtn');
@@ -1764,6 +2111,7 @@
 
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
+      formData.append('mode', mode || 'append');
 
       btn.disabled = true;
       resultEl.style.color = 'var(--muted-foreground)';
@@ -1780,24 +2128,33 @@
         }
 
         resultEl.style.color = 'var(--success)';
-        let msg = `Imported ${data.imported} of ${data.totalParsed || data.imported} leads.`;
-        if (data.skipped > 0) {
-          msg += ` ${data.skipped} skipped (missing fields).`;
-        }
-        resultEl.textContent = msg;
+        const parts = [];
+        if (data.mode === 'replace' && data.cleared > 0) parts.push(`Replaced ${data.cleared} existing leads.`);
+        parts.push(`Imported ${data.imported} leads.`);
+        if (data.duplicates > 0) parts.push(`${data.duplicates} duplicates skipped.`);
+        if (data.skipped > 0) parts.push(`${data.skipped} missing fields.`);
+        resultEl.textContent = parts.join(' ');
         fileInput.value = '';
 
-        // Show skip details in a toast if any were skipped
-        if (data.skipped > 0 && data.skippedDetails && data.skippedDetails.length > 0) {
-          const details = data.skippedDetails.slice(0, 10).map(d =>
-            `<li><strong>${esc(d.name)}</strong> — missing ${d.missing.join(', ')}</li>`
-          ).join('');
-          const extra = data.skippedDetails.length > 10 ? `<li style="color:var(--muted-foreground);">...and ${data.skippedDetails.length - 10} more</li>` : '';
-          openConfirmModal('Import Summary', `
-            <p style="margin-bottom:10px;color:var(--success);">Successfully imported <strong>${data.imported}</strong> leads.</p>
-            <p style="margin-bottom:8px;color:var(--warning);">${data.skipped} leads skipped (missing email or website):</p>
-            <ul style="font-size:12px;max-height:200px;overflow-y:auto;padding-left:18px;line-height:1.8;">${details}${extra}</ul>
-          `, 'Got it');
+        // Show summary modal if there are details worth showing
+        const hasDetails = (data.skipped > 0 && data.skippedDetails?.length > 0) || data.duplicates > 0;
+        if (hasDetails) {
+          let summaryHtml = `<p style="margin-bottom:10px;color:var(--success);">Successfully imported <strong>${data.imported}</strong> leads.</p>`;
+          if (data.mode === 'replace' && data.cleared > 0) {
+            summaryHtml += `<p style="margin-bottom:8px;color:var(--muted-foreground);">Cleared <strong>${data.cleared}</strong> previous leads before import.</p>`;
+          }
+          if (data.duplicates > 0) {
+            summaryHtml += `<p style="margin-bottom:8px;color:var(--info);"><strong>${data.duplicates}</strong> duplicate(s) skipped (email already exists).</p>`;
+          }
+          if (data.skipped > 0 && data.skippedDetails?.length > 0) {
+            const details = data.skippedDetails.slice(0, 10).map(d =>
+              `<li><strong>${esc(d.name)}</strong> — missing ${d.missing.join(', ')}</li>`
+            ).join('');
+            const extra = data.skippedDetails.length > 10 ? `<li style="color:var(--muted-foreground);">...and ${data.skippedDetails.length - 10} more</li>` : '';
+            summaryHtml += `<p style="margin-bottom:8px;color:var(--warning);">${data.skipped} leads skipped (missing email or website):</p>`;
+            summaryHtml += `<ul style="font-size:12px;max-height:200px;overflow-y:auto;padding-left:18px;line-height:1.8;">${details}${extra}</ul>`;
+          }
+          openConfirmModal('Import Summary', summaryHtml, 'Got it');
         }
 
         setTimeout(async () => {
@@ -1818,15 +2175,16 @@
       try {
         const res = await fetch('/api/settings/gmail-send-as');
         const data = await res.json();
-        const select = document.getElementById('sendFromEmail');
         const section = document.getElementById('sendFromSection');
         if (data.addresses && data.addresses.length > 0) {
           section.classList.remove('hidden');
-          select.innerHTML = data.addresses.map(a => {
-            const badge = a.isPrimary ? ' (primary)' : '';
-            const selected = (data.savedSender === a.email) ? 'selected' : '';
-            return `<option value="${a.email}" ${selected}>${a.email}${badge}</option>`;
-          }).join('');
+          const options = data.addresses.map(a => ({
+            value: a.email,
+            label: a.email + (a.isPrimary ? ' (primary)' : '')
+          }));
+          const saved = data.savedSender || options[0]?.value || '';
+          csSetOptions('sendFromEmail', options, saved);
+          csOnChange('sendFromEmail', () => saveSendFrom());
         }
       } catch (err) {
         console.log('Could not load send-as addresses:', err);
@@ -1834,7 +2192,7 @@
     }
 
     async function saveSendFrom() {
-      const email = document.getElementById('sendFromEmail').value;
+      const email = csGetValue('sendFromEmail');
       try {
         await fetch('/api/settings/send-from', {
           method: 'POST',
@@ -1934,6 +2292,9 @@
 
     function renderLeadsTable(leads) {
       if (!leads) leads = getFilteredLeads();
+      // Update leads count label
+      const countLabel = document.getElementById('leadsCountLabel');
+      if (countLabel) countLabel.textContent = allLeads.length > 0 ? `${allLeads.length} total` : '';
       // Sort: unprocessed first, processed at bottom
       const sorted = [...leads].sort((a, b) => {
         const aProc = isProcessed(a.status);
@@ -1976,28 +2337,28 @@
           <td style="padding-left: 14px;">
             <input type="checkbox" class="lead-check" value="${lead.rowNumber}" onchange="updateSelectedCount()" ${proc ? 'disabled' : ''} style="accent-color: var(--chart-2); cursor: ${proc ? 'not-allowed' : 'pointer'};">
           </td>
-          <td style="font-family: var(--font-mono); font-size: 11px; opacity: 0.5;">${lead.rowNumber}</td>
-          <td style="color: var(--foreground);">${esc(name)}</td>
-          <td>${esc(lead.company)}</td>
-          <td style="font-family: var(--font-mono); font-size: 12px;">${esc(lead.email)}</td>
-          <td style="font-size: 12px;">${esc(lead.website)}</td>
+          <td style="font-family: var(--font-mono); font-size: 11px; opacity: 0.4;">${lead.rowNumber}</td>
+          <td style="color: var(--foreground); font-weight: 500;" title="${esc(name)}">${esc(name)}</td>
+          <td title="${esc(lead.company)}">${esc(lead.company)}</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;" title="${esc(lead.email)}">${esc(lead.email)}</td>
+          <td style="font-size: 12px;" title="${esc(lead.website)}">${lead.website ? esc(lead.website.replace(/^https?:\/\//, '')) : ''}</td>
           <td>
-            <span class="lead-status ${statusClass || 'lead-status-none'}" id="lead-status-${lead.rowNumber}">${esc(lead.status) || '—'}</span>
+            <span class="lead-status ${statusClass || 'lead-status-none'}" id="lead-status-${lead.rowNumber}">${esc(lead.status) || 'Queued'}</span>
             <span class="lead-detail" id="lead-detail-${lead.rowNumber}"></span>
           </td>
           <td style="font-size: 11px; color: var(--muted-foreground);">
             ${lead.scheduledTime
               ? `<span id="sched-${lead.rowNumber}" style="cursor: pointer;" onclick="editScheduleTime(${lead.rowNumber}, '${esc(lead.company)}', '${esc(lead.email)}')" title="Click to reschedule">${formatLeadScheduledTime(lead.scheduledTime)}</span>`
-              : '<span style="opacity:0.4;">—</span>'}
+              : ''}
           </td>
           <td style="font-size: 11px; color: var(--muted-foreground);">
             ${hasDraft
               ? `<span class="clickable" onclick="viewDraft(${lead.rowNumber})" style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;">${esc(draftPreview) || 'View draft'}</span>`
-              : '<span style="opacity:0.4;">—</span>'}
+              : ''}
           </td>
           <td>
             ${canRedraft
-              ? `<button class="btn btn-ghost btn-sm" onclick="redraftLead(${lead.rowNumber})" id="redraft-${lead.rowNumber}" style="font-size: 11px; padding: 3px 8px;">Redraft</button>`
+              ? `<button class="btn btn-ghost btn-xs" onclick="redraftLead(${lead.rowNumber})" id="redraft-${lead.rowNumber}" style="font-size: 11px;">Redraft</button>`
               : ''}
           </td>
         </tr>`;
@@ -2061,36 +2422,47 @@
     }
 
     function setActiveSelectMode(btnId) {
-      document.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
       const btn = document.getElementById(btnId);
-      if (btn) btn.classList.add('active');
+      if (!btn) return;
+      const group = btn.closest('.btn-toggle-group');
+      const wasActive = btn.classList.contains('active');
+      if (group) group.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+      if (!wasActive) btn.classList.add('active');
+      return wasActive; // true = was toggled off
+    }
+
+    function deselectAll() {
+      document.querySelectorAll('.lead-check').forEach(cb => { cb.checked = false; });
+      document.getElementById('selectAll').checked = false;
+      window._selectAllMode = false;
+      updateSelectedCount();
     }
 
     function selectUnprocessed() {
+      if (setActiveSelectMode('selUnprocessed')) { deselectAll(); return; }
       document.querySelectorAll('.lead-check').forEach(cb => {
         cb.checked = !cb.disabled;
       });
       document.getElementById('selectAll').checked = false;
-      setActiveSelectMode('selUnprocessed');
+      window._selectAllMode = false;
       updateSelectedCount();
     }
 
     function selectPage() {
+      if (setActiveSelectMode('selPage')) { deselectAll(); return; }
       document.querySelectorAll('.lead-check').forEach(cb => {
         if (!cb.disabled) cb.checked = true;
-        else cb.checked = true; // select all on page including processed
+        else cb.checked = true;
       });
       document.getElementById('selectAll').checked = true;
-      setActiveSelectMode('selPage');
+      window._selectAllMode = false;
       updateSelectedCount();
     }
 
     function selectAllLeads() {
-      // Check all on current page, then mark all leads as selected
+      if (setActiveSelectMode('selAll')) { deselectAll(); return; }
       document.querySelectorAll('.lead-check').forEach(cb => { cb.checked = true; });
       document.getElementById('selectAll').checked = true;
-      setActiveSelectMode('selAll');
-      // Store flag so startProcessing sends all rows, not just visible page
       window._selectAllMode = true;
       const total = allLeads.filter(l => !isProcessed(l.status)).length;
       document.getElementById('selectedCount').textContent = total + ' selected (all)';
@@ -2166,7 +2538,7 @@
               skipped: { cls: 'lead-status-skipped', label: 'Skipped' },
               failed: { cls: 'lead-status-failed', label: 'Failed' }
             };
-            const info = statusMap[lead.status] || { cls: 'lead-status-none', label: lead.status || '—' };
+            const info = statusMap[lead.status] || { cls: 'lead-status-none', label: lead.status || 'Queued' };
             const dot = lead.status === 'processing' ? '<span class="pulse-dot"></span> ' : '';
             statusEl.className = 'lead-status ' + info.cls;
             statusEl.innerHTML = dot + info.label;
@@ -2424,17 +2796,47 @@
       };
     }
 
-    // Set default date
+    // Populate date & time custom selects
     (function() {
-      const today = new Date().toISOString().slice(0, 10);
-      const dateInput = document.getElementById('scheduleDate');
-      dateInput.value = today;
-      dateInput.min = today;
-      // Set start time to now + 1 minute
+      // -- Date: next 14 days --
+      const dateOpts = [];
+      const today = new Date();
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        const val = d.toISOString().slice(0, 10);
+        const prefix = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : dayNames[d.getDay()];
+        const label = `${prefix}, ${monthNames[d.getMonth()]} ${d.getDate()}`;
+        dateOpts.push({ value: val, label });
+      }
+      csSetOptions('scheduleDateSelect', dateOpts, dateOpts[0].value);
+
+      // -- Time slots: 30-min increments --
+      function buildTimeOptions() {
+        const opts = [];
+        for (let h = 0; h < 24; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const val = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+            const hr12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+            const ampm = h < 12 ? 'AM' : 'PM';
+            const label = `${hr12}:${String(m).padStart(2,'0')} ${ampm}`;
+            opts.push({ value: val, label });
+          }
+        }
+        return opts;
+      }
+      const timeOpts = buildTimeOptions();
+
+      // Start time: round up to next 30-min slot
       const now = new Date();
       now.setMinutes(now.getMinutes() + 1);
-      document.getElementById('scheduleStartTime').value =
-        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const startMin = Math.ceil(now.getMinutes() / 30) * 30;
+      const startHr = startMin >= 60 ? now.getHours() + 1 : now.getHours();
+      const startVal = String(startHr % 24).padStart(2,'0') + ':' + String(startMin % 60).padStart(2,'0');
+      csSetOptions('startTimeSelect', timeOpts, startVal || '09:00');
+      csSetOptions('endTimeSelect', timeOpts, '17:00');
     })();
 
     // Check for existing scheduled emails on load
@@ -2633,10 +3035,10 @@
           return;
         }
 
-        const scheduleDate = document.getElementById('scheduleDate').value;
-        const timezone = document.getElementById('timezone').value;
-        const startTime = document.getElementById('scheduleStartTime').value;
-        const endTime = document.getElementById('scheduleEndTime').value;
+        const scheduleDate = csGetValue('scheduleDateSelect');
+        const timezone = csGetValue('timezoneSelect');
+        const startTime = csGetValue('startTimeSelect');
+        const endTime = csGetValue('endTimeSelect');
         const minInterval = parseInt(document.getElementById('minInterval').value) || 15;
         const maxInterval = document.getElementById('maxInterval').value;
         const filterEmail = document.getElementById('filterEmail').value;
@@ -2689,10 +3091,10 @@
     }
 
     async function startSchedule() {
-      const scheduleDate = document.getElementById('scheduleDate').value;
-      const timezone = document.getElementById('timezone').value;
-      const startTime = document.getElementById('scheduleStartTime').value;
-      const endTime = document.getElementById('scheduleEndTime').value;
+      const scheduleDate = csGetValue('scheduleDateSelect');
+      const timezone = csGetValue('timezoneSelect');
+      const startTime = csGetValue('startTimeSelect');
+      const endTime = csGetValue('endTimeSelect');
       const minInterval = document.getElementById('minInterval').value;
       const maxInterval = document.getElementById('maxInterval').value;
       const filterEmail = document.getElementById('filterEmail').value;

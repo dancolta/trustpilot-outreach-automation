@@ -559,13 +559,28 @@ export async function clearScheduledTime(company) {
 }
 
 /**
- * Get all emails from the Emails tab for listing
+ * Clear all lead rows from Sheet1 (A2:I), used before a replace-mode import
+ * @returns {number} Number of rows cleared
  */
-/**
- * Append new lead rows to Sheet1 (columns A-F)
- * @param {Array<{firstName, lastName, company, email, website}>} leads
- * @returns {number} Number of rows appended
- */
+export async function clearLeadsFromSheet() {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  // Get the last row to know the range to clear
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: 'Sheet1!A2:I',
+  });
+  const rowCount = (response.data.values || []).length;
+  if (rowCount === 0) return 0;
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: `Sheet1!A2:I${rowCount + 1}`,
+  });
+  return rowCount;
+}
+
 export async function appendLeadsToSheet(leads) {
   const sheets = await getClient();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
