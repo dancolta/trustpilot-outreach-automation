@@ -1,5 +1,7 @@
 # Trustpilot Outreach Automation
 
+![Pipeline Demo](demo.gif)
+
 Automated lead generation system that scrapes negative Trustpilot reviews, identifies technical pain points, and generates high-converting cold outreach emails.
 
 ## How It Works
