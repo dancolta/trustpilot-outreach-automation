@@ -25,16 +25,74 @@ async function getClient() {
 }
 
 /**
- * Read companies from Sheet1 starting from a specific row
- * Columns: C=First Name, D=Last Name, F=Company Name, G=Email, N=Website
+ * Find the first row in Sheet1 where Column A (Channel) is empty
+ * @param {number} searchStartRow - Row to start searching from (default: 2 to skip header)
+ * @returns {number} Row number of first unprocessed row, or searchStartRow if none found
  */
-export async function readCompanies(startRow = 18, limit = null) {
+export async function findFirstUnprocessedRow(searchStartRow = 2) {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `Sheet1!A${searchStartRow}:A`,
+  });
+
+  const values = response.data.values || [];
+
+  for (let i = 0; i < values.length; i++) {
+    const cellValue = (values[i]?.[0] || '').toString().trim().toLowerCase();
+    if (!cellValue || cellValue === '') {
+      return searchStartRow + i;
+    }
+  }
+
+  return searchStartRow + values.length;
+}
+
+/**
+ * Read all leads from Sheet1 including status column
+ * Returns full lead data for display in UI
+ */
+export async function readAllLeads(startRow = 2) {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  // A=Status, B=First Name, C=Last Name, D=Company, E=Email, F=Website, G=Trustpilot URL, H=Email Draft, I=Draft ID
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `Sheet1!A${startRow}:I`,
+  });
+
+  const rows = response.data.values || [];
+
+  return rows
+    .map((row, index) => ({
+      status: (row[0] || '').trim(),
+      firstName: (row[1] || '').trim(),
+      lastName: (row[2] || '').trim(),
+      company: (row[3] || '').trim(),
+      email: (row[4] || '').trim(),
+      website: (row[5] || '').trim(),
+      trustpilotUrl: (row[6] || '').trim(),
+      emailDraft: (row[7] || '').trim(),
+      draftId: (row[8] || '').trim(),
+      rowNumber: startRow + index,
+    }))
+    .filter(row => row.company);
+}
+
+/**
+ * Read companies from Sheet1 starting from a specific row
+ * Compact layout: A=Status, B=First Name, C=Last Name, D=Company, E=Email, F=Website
+ */
+export async function readCompanies(startRow = 2, limit = null) {
   const sheets = await getClient();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
   // If limit specified, only fetch those rows
   const endRow = limit ? startRow + limit - 1 : '';
-  const range = limit ? `Sheet1!A${startRow}:Q${endRow}` : `Sheet1!A${startRow}:Q`;
+  const range = limit ? `Sheet1!A${startRow}:F${endRow}` : `Sheet1!A${startRow}:F`;
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -45,19 +103,19 @@ export async function readCompanies(startRow = 18, limit = null) {
 
   return rows
     .map((row, index) => ({
-      ceoName: `${row[2] || ''} ${row[3] || ''}`.trim(),
-      company: row[5]?.trim() || '',
-      email: row[6]?.trim() || '',
-      website: row[13]?.trim() || '',
+      ceoName: `${row[1] || ''} ${row[2] || ''}`.trim(),
+      company: row[3]?.trim() || '',
+      email: row[4]?.trim() || '',
+      website: row[5]?.trim() || '',
       rowNumber: startRow + index,
     }))
     .filter(row => row.company);
 }
 
 /**
- * Mark a row as processed by setting Column A (Channel) to "email"
+ * Mark a row as processed by setting Column A (Status)
  */
-export async function markAsProcessed(rowNumber) {
+export async function markAsProcessed(rowNumber, status = 'email') {
   const sheets = await getClient();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -65,7 +123,22 @@ export async function markAsProcessed(rowNumber) {
     spreadsheetId,
     range: `Sheet1!A${rowNumber}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [['email']] }
+    requestBody: { values: [[status]] }
+  });
+}
+
+/**
+ * Write draft data to Sheet1 columns G-I (Trustpilot URL, Email Draft, Draft ID)
+ */
+export async function writeDraftToLead(rowNumber, { trustpilotUrl, emailDraft, draftId }) {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `Sheet1!G${rowNumber}:I${rowNumber}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[trustpilotUrl || '', emailDraft || '', draftId || '']] }
   });
 }
 
@@ -242,13 +315,18 @@ export async function writeOutreach(data) {
   const existingCompanies = (existing.data.values || []).flat();
   const rowIndex = existingCompanies.findIndex(c => c === data.company);
 
+  // Serialize generated email to JSON string if it's an object (A/B variants)
+  const emailValue = typeof data.generatedEmail === 'object'
+    ? JSON.stringify(data.generatedEmail)
+    : (data.generatedEmail || '');
+
   const rowData = [
     data.company,
     data.ceoName,
     data.ceoEmail || '',
     data.trustpilotUrl || '',
     data.painPoints,
-    data.generatedEmail,
+    emailValue,
     data.status
   ];
 
@@ -483,6 +561,38 @@ export async function clearScheduledTime(company) {
 /**
  * Get all emails from the Emails tab for listing
  */
+/**
+ * Append new lead rows to Sheet1 (columns A-F)
+ * @param {Array<{firstName, lastName, company, email, website}>} leads
+ * @returns {number} Number of rows appended
+ */
+export async function appendLeadsToSheet(leads) {
+  const sheets = await getClient();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+
+  const rows = leads.map(l => [
+    '',                   // A: Status (empty = unprocessed)
+    l.firstName || '',    // B: First Name
+    l.lastName || '',     // C: Last Name
+    l.company || '',      // D: Company
+    l.email || '',        // E: Email
+    l.website || '',      // F: Website
+    '',                   // G: Trustpilot URL (filled during processing)
+    '',                   // H: Email Draft (filled during processing)
+    '',                   // I: Draft ID (filled during processing)
+  ]);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: 'Sheet1!A:I',
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: rows },
+  });
+
+  return rows.length;
+}
+
 export async function getAllEmails() {
   const { tabName } = await ensureEmailsTab();
   const sheets = await getClient();

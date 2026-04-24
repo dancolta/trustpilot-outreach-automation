@@ -3,844 +3,1899 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Outreach Automation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Trustpilot Outreach</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --black: #000000;
-      --soft-black: #0A0A0A;
-      --charcoal: #1A1A1A;
-      --dark-gray: #2A2A2A;
-      --mid-gray: #6B6B6B;
-      --light-gray: #A0A0A0;
-      --off-white: #E5E5E5;
-      --white: #FFFFFF;
-      --success: #22C55E;
-      --warning: #F59E0B;
-      --error: #EF4444;
-      --info: #3B82F6;
+      /* shadcn dark neutral palette */
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #0a0a0a;
+      --card-foreground: #fafafa;
+      --primary: #fafafa;
+      --primary-foreground: #0a0a0a;
+      --secondary: #262626;
+      --secondary-foreground: #fafafa;
+      --muted: #262626;
+      --muted-foreground: #a1a1a1;
+      --accent: #262626;
+      --accent-foreground: #fafafa;
+      --destructive: #e7000b;
+      --destructive-foreground: #ffffff;
+      --border: #262626;
+      --input: #262626;
+      --ring: #525252;
+      --sidebar: #0a0a0a;
+      --sidebar-foreground: #fafafa;
+      --sidebar-border: #262626;
+      --sidebar-accent: #262626;
+      --sidebar-accent-foreground: #fafafa;
+      --sidebar-primary: #fafafa;
+      --sidebar-primary-foreground: #0a0a0a;
+      /* chart blues */
+      --chart-1: #91c5ff;
+      --chart-2: #3a81f6;
+      --chart-3: #2563ef;
+      --chart-4: #1a4eda;
+      --chart-5: #1f3fad;
+      /* functional */
+      --success: #22c55e;
+      --success-dim: rgba(34, 197, 94, 0.10);
+      --warning: #f59e0b;
+      --warning-dim: rgba(245, 158, 11, 0.10);
+      --error: #ef4444;
+      --error-dim: rgba(239, 68, 68, 0.10);
+      --info: #3b82f6;
+      --info-dim: rgba(59, 130, 246, 0.10);
+      /* radii */
+      --radius: 0.75rem;
+      --radius-sm: 0.5rem;
+      --radius-xs: 0.375rem;
+      /* mono font */
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--black);
-      color: var(--off-white);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+      background: var(--background);
+      color: var(--foreground);
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.6;
       font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 48px 24px;
+    /* Layout */
+    .app { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 240px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
     }
 
-    /* Header */
-    header {
-      margin-bottom: 48px;
+    .sidebar-brand {
+      padding: 0 20px 24px;
+      border-bottom: 1px solid var(--sidebar-border);
+      margin-bottom: 8px;
     }
 
-    .logo {
-      font-size: 24px;
-      font-weight: 600;
-      color: var(--white);
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .sidebar-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--sidebar-accent);
+      border-radius: var(--radius-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-logo-icon svg { width: 18px; height: 18px; color: var(--chart-2); }
+
+    .sidebar-logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--sidebar-foreground);
       letter-spacing: -0.02em;
-      margin-bottom: 4px;
     }
 
-    .logo-sub {
-      font-size: 14px;
-      color: var(--light-gray);
+    .sidebar-logo-sub {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-weight: 400;
     }
 
-    /* Cards */
-    .card {
-      background: var(--soft-black);
-      border: 1px solid var(--charcoal);
-      border-radius: 8px;
-      padding: 24px;
-      margin-bottom: 24px;
+    .sidebar-nav { padding: 8px 12px; flex: 1; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--muted-foreground);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      user-select: none;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
     }
 
-    .card-header {
-      font-size: 14px;
+    .nav-item:hover {
+      background: var(--sidebar-accent);
+      color: var(--sidebar-foreground);
+    }
+
+    .nav-item.active {
+      background: var(--sidebar-accent);
+      color: var(--sidebar-primary);
       font-weight: 600;
-      color: var(--white);
-      margin-bottom: 20px;
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 3px;
+      height: 20px;
+      background: var(--chart-2);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .nav-item { position: relative; }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--sidebar-border);
+    }
+
+    .sidebar-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.red { background: var(--error); }
+    .status-dot.yellow { background: var(--warning); }
+    .status-dot.gray { background: var(--muted-foreground); }
+
+    .main {
+      flex: 1;
+      margin-left: 240px;
+      padding: 32px 40px;
+      max-width: 1100px;
+    }
+
+    /* Page Header */
+    .page-header { margin-bottom: 28px; }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--foreground);
+      letter-spacing: -0.025em;
+    }
+
+    .page-desc {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin-top: 4px;
+    }
+
+    /* Panels — bento-grid inspired */
+    .panel {
+      position: relative;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+
+    .panel:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 2px 16px rgba(255, 255, 255, 0.02);
+    }
+
+    /* Subtle dot pattern on panels */
+    .panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 4px 4px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .panel:hover::before { opacity: 1; }
+
+    .panel-header {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--foreground);
+      letter-spacing: 0.01em;
+    }
+
+    .panel-body {
+      position: relative;
+      z-index: 1;
+      padding: 20px;
+    }
+
+    /* KPI Row — bento card style */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      transition: all 0.3s;
+      overflow: hidden;
+    }
+
+    .kpi-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 12px rgba(255,255,255,0.02);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-value.accent { color: var(--success); }
+    .kpi-value.warning { color: var(--warning); }
+    .kpi-value.error { color: var(--error); }
+
+    /* Badges — pill style with backdrop blur */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: var(--radius-xs);
+      font-size: 11px;
+      font-weight: 500;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .badge-idle {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted-foreground);
+    }
+
+    .badge-running {
+      background: var(--info-dim);
+      color: var(--info);
+    }
+
+    .badge-success, .badge-connected {
+      background: var(--success-dim);
+      color: var(--success);
+    }
+
+    .badge-error, .badge-disconnected {
+      background: var(--error-dim);
+      color: var(--error);
+    }
+
+    .badge-warning {
+      background: var(--warning-dim);
+      color: var(--warning);
+    }
+
+    .badge-drafting {
+      background: var(--info-dim);
+      color: var(--info);
     }
 
     /* Form Elements */
-    .form-row {
-      display: flex;
-      gap: 16px;
-      align-items: flex-end;
-    }
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
 
-    .form-group {
-      flex: 1;
-    }
-
-    .form-label {
+    .field-label {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
-      color: var(--off-white);
-      margin-bottom: 8px;
+      color: var(--muted-foreground);
+      margin-bottom: 6px;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 4px;
+      opacity: 0.7;
     }
 
     input[type="number"],
     input[type="text"],
     input[type="time"],
     input[type="date"],
+    input[type="password"],
     select,
     textarea {
       width: 100%;
-      background: var(--charcoal);
-      border: 1px solid var(--dark-gray);
-      border-radius: 6px;
-      padding: 12px 16px;
+      background: var(--input);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-xs);
+      padding: 10px 14px;
       font-family: inherit;
-      font-size: 14px;
-      color: var(--white);
+      font-size: 13px;
+      color: var(--foreground);
       outline: none;
-      transition: border-color 0.15s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--white);
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px rgba(82, 82, 82, 0.25);
     }
 
-    input::placeholder,
-    textarea::placeholder {
-      color: var(--mid-gray);
+    input::placeholder, textarea::placeholder {
+      color: var(--muted-foreground);
+      opacity: 0.6;
     }
 
     select {
       cursor: pointer;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A0A0A0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
-      padding-right: 40px;
+      padding-right: 36px;
     }
 
-    /* Buttons */
-    .btn-row {
+    .field-row {
       display: flex;
       gap: 12px;
-      margin-top: 20px;
+      align-items: flex-end;
     }
 
+    .field-row .field { flex: 1; margin-bottom: 0; }
+
+    /* Buttons — shadcn-inspired with subtle shadows and smooth transitions */
     .btn {
-      padding: 12px 24px;
-      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      height: 36px;
+      border-radius: var(--radius-sm);
       font-family: inherit;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.15s;
-      min-height: 44px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+      border: none;
+      white-space: nowrap;
+      outline: none;
+      -webkit-font-smoothing: antialiased;
     }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+    }
+
+    .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 
     .btn-primary {
-      background: var(--white);
-      color: var(--black);
-      border: none;
+      background: var(--primary);
+      color: var(--primary-foreground);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: var(--off-white);
+      background: rgba(250, 250, 250, 0.88);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      background: rgba(250, 250, 250, 0.82);
+      box-shadow: none;
     }
 
     .btn-primary:disabled {
-      background: var(--dark-gray);
-      color: var(--mid-gray);
+      background: var(--muted);
+      color: var(--muted-foreground);
       cursor: not-allowed;
+      box-shadow: none;
+      opacity: 0.6;
     }
 
     .btn-secondary {
-      background: transparent;
-      color: var(--white);
-      border: 1px solid var(--dark-gray);
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .btn-secondary:hover:not(:disabled) {
-      background: var(--charcoal);
-      border-color: var(--mid-gray);
+      background: rgba(38, 38, 38, 0.85);
     }
 
-    .btn-secondary:disabled {
-      color: var(--mid-gray);
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted-foreground);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--accent);
+      color: var(--accent-foreground);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-ghost:active:not(:disabled) {
+      background: rgba(38, 38, 38, 0.8);
+    }
+
+    .btn-ghost:disabled {
+      color: var(--muted-foreground);
+      opacity: 0.4;
       cursor: not-allowed;
     }
 
-    /* Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
+    .btn-outline {
+      background: var(--background);
+      color: var(--accent-foreground);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
-    .stat-box {
-      background: var(--charcoal);
-      border-radius: 6px;
-      padding: 20px;
-      text-align: center;
+    .btn-outline:hover:not(:disabled) {
+      background: var(--accent);
+      border-color: rgba(255, 255, 255, 0.15);
     }
 
-    .stat-value {
-      font-size: 32px;
-      font-weight: 700;
-      color: var(--white);
-      line-height: 1.1;
-      margin-bottom: 4px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--light-gray);
-    }
-
-    /* Status Badge */
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .status-badge.idle {
-      background: var(--charcoal);
-      color: var(--light-gray);
-    }
-
-    .status-badge.running {
-      background: rgba(59, 130, 246, 0.15);
-      color: var(--info);
-    }
-
-    .status-badge.completed {
-      background: rgba(34, 197, 94, 0.15);
-      color: var(--success);
-    }
-
-    .status-badge.connected {
-      background: rgba(34, 197, 94, 0.15);
-      color: var(--success);
-    }
-
-    .status-badge.disconnected {
-      background: rgba(239, 68, 68, 0.15);
+    .btn-danger {
+      background: var(--error-dim);
       color: var(--error);
+      border: 1px solid transparent;
     }
 
-    .status-badge.drafting {
-      background: rgba(59, 130, 246, 0.15);
-      color: var(--info);
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.18);
     }
 
-    /* Progress Bar */
-    .progress-container {
-      margin: 20px 0;
+    .btn-danger:active:not(:disabled) {
+      background: rgba(239, 68, 68, 0.24);
     }
 
-    .progress-bar-bg {
-      height: 8px;
-      background: var(--charcoal);
-      border-radius: 4px;
+    .btn-sm {
+      padding: 0 10px;
+      height: 30px;
+      font-size: 12px;
+      border-radius: var(--radius-xs);
+    }
+
+    .btn-xs {
+      padding: 0 8px;
+      height: 24px;
+      font-size: 11px;
+      border-radius: var(--radius-xs);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    /* Progress */
+    .progress-track {
+      height: 4px;
+      background: var(--muted);
+      border-radius: 2px;
       overflow: hidden;
     }
 
-    .progress-bar-fill {
+    .progress-fill {
       height: 100%;
-      background: var(--white);
-      border-radius: 4px;
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, var(--chart-2), var(--chart-1));
+      border-radius: 2px;
+      transition: width 0.4s ease;
       width: 0%;
     }
 
-    .progress-text {
+    .progress-meta {
       display: flex;
       justify-content: space-between;
       margin-top: 8px;
-      font-size: 13px;
-    }
-
-    .progress-label {
-      color: var(--white);
-      font-weight: 500;
-    }
-
-    .progress-current {
-      color: var(--light-gray);
-    }
-
-    /* Log */
-    .log-container {
-      max-height: 240px;
-      overflow-y: auto;
-      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
       font-size: 12px;
-      background: var(--charcoal);
-      border-radius: 6px;
-      padding: 16px;
     }
 
-    .log-entry {
+    .progress-meta-label { color: var(--foreground); font-weight: 600; }
+    .progress-meta-value { color: var(--muted-foreground); }
+
+    /* Terminal Log */
+    .log {
+      max-height: 220px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--background);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+
+    .log-line {
       display: flex;
-      gap: 16px;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--dark-gray);
+      gap: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    .log-entry:last-child {
-      border-bottom: none;
-    }
+    .log-line:last-child { border-bottom: none; }
 
-    .log-time {
-      color: var(--mid-gray);
+    .log-ts {
+      color: var(--muted-foreground);
       flex-shrink: 0;
       font-variant-numeric: tabular-nums;
+      opacity: 0.6;
     }
 
-    .log-message {
-      color: var(--off-white);
-    }
+    .log-msg { color: var(--muted-foreground); }
 
-    /* Gmail Section */
-    .gmail-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-
-    .gmail-info {
+    /* Connected row */
+    .connected-row {
       display: flex;
       align-items: center;
       gap: 12px;
+      padding: 10px 14px;
+      background: var(--input);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-xs);
     }
 
-    .gmail-email {
-      font-size: 13px;
-      color: var(--light-gray);
-      font-family: 'SF Mono', Monaco, monospace;
+    .connected-email {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
     }
 
-    /* Hidden sections */
-    .progress-section {
-      display: none;
-    }
-
-    .progress-section.active {
-      display: block;
-    }
-
-    /* Status Header */
-    .status-header {
+    .connected-actions {
+      margin-left: auto;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
+      gap: 8px;
     }
 
-    /* Responsive */
-    @media (max-width: 600px) {
-      .form-row {
-        flex-direction: column;
-      }
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
 
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
+    /* Password field */
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+    }
+    .pw-toggle:hover { color: var(--foreground); }
 
-      .btn-row {
-        flex-direction: column;
-      }
+    /* Status inline */
+    .field-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .field-status.valid { color: var(--success); }
+    .field-status.invalid { color: var(--error); }
+    .field-status.pending { color: var(--muted-foreground); }
 
-      .btn {
-        width: 100%;
-      }
+    /* Select mode button group */
+    .select-mode-btn { transition: all 0.15s; }
+    .select-mode-btn.active {
+      background: var(--primary) !important;
+      color: var(--primary-foreground) !important;
+      border-color: transparent !important;
+    }
+
+    /* Hidden */
+    .hidden { display: none !important; }
+
+    /* Stats grid */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-cell {
+      background: var(--background);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .stat-cell:hover { border-color: rgba(255, 255, 255, 0.12); }
+
+    .stat-num {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--foreground);
+      line-height: 1;
+      margin-bottom: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-txt {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 500;
+    }
+
+    /* Table */
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .tbl thead th {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+      background: var(--background);
+    }
+
+    .tbl tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--muted-foreground);
+    }
+
+    .tbl tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+    .tbl tbody tr.lead-selected { background: rgba(58, 129, 246, 0.06); }
+    .tbl tbody tr.lead-processing { background: rgba(59, 130, 246, 0.08); }
+    .tbl tbody tr.lead-done { opacity: 0.65; }
+
+    .lead-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: var(--radius-xs);
+      white-space: nowrap;
+    }
+    .lead-status-queued { background: rgba(255,255,255,0.06); color: var(--muted-foreground); }
+    .lead-status-processing { background: var(--info-dim); color: var(--info); }
+    .lead-status-done { background: var(--success-dim); color: var(--success); }
+    .lead-status-skipped { background: var(--warning-dim); color: var(--warning); }
+    .lead-status-failed { background: var(--error-dim); color: var(--error); }
+    .lead-status-none { color: var(--muted-foreground); opacity: 0.5; }
+
+    .lead-detail {
+      display: block;
+      font-size: 10px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .pulse-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--info);
+      animation: pulse-dot 1.2s ease-in-out infinite;
     }
 
     /* Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--ring); }
 
-    ::-webkit-scrollbar-track {
-      background: var(--charcoal);
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--dark-gray);
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--mid-gray);
-    }
-
-    /* Focus states for accessibility */
-    button:focus-visible,
-    input:focus-visible,
-    select:focus-visible {
-      outline: 2px solid var(--white);
+    /* Focus */
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--ring);
       outline-offset: 2px;
     }
 
-    /* Reduced motion */
     @media (prefers-reduced-motion: reduce) {
-      * {
-        animation: none !important;
-        transition-duration: 0.01ms !important;
-      }
+      * { animation: none !important; transition-duration: 0.01ms !important; }
     }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 24px 16px; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      .field-row { flex-direction: column; }
+      .kpi-row { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr; }
+      .btn-row { flex-direction: column; }
+      .btn { width: 100%; }
+    }
+
+    /* Page sections */
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+
+    /* Banner */
+    .banner {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .banner-warn { background: var(--warning-dim); color: var(--warning); }
+    .banner-success { background: var(--success-dim); color: var(--success); }
+    .banner-error { background: var(--error-dim); color: var(--error); }
+
+    .banner-close {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    /* Detail modal overlay */
+    .detail-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .detail-modal-overlay.open { display: flex; }
+    .detail-modal {
+      background: var(--secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-width: 640px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-modal-header h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .detail-modal-close {
+      background: none;
+      border: none;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px 8px;
+      border-radius: var(--radius-xs);
+    }
+    .detail-modal-close:hover { background: rgba(255,255,255,0.08); }
+    .detail-modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font-mono);
+      color: var(--foreground);
+    }
+    /* Clickable truncated detail */
+    .lead-detail.clickable {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+    }
+    .lead-detail.clickable:hover { color: var(--foreground); }
+    .log-msg.clickable {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+    }
+    .log-msg.clickable:hover { color: var(--foreground); }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1 class="logo">Outreach Automation</h1>
-      <p class="logo-sub">Trustpilot Analysis + AI Email Generation</p>
-    </header>
-
-    <!-- Configure Section -->
-    <div class="card">
-      <div class="card-header">Configure Processing</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="startRow">Start Row</label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="number" id="startRow" placeholder="18" value="18" style="flex: 1;">
-            <button type="button" class="btn btn-secondary" onclick="refreshStartRow()" title="Find first unprocessed row" style="padding: 8px 12px; min-width: auto;">
-              ↻
-            </button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="endRow">End Row</label>
-          <input type="number" id="endRow" placeholder="20" value="20">
-        </div>
+  <!-- Detail/Error popup modal -->
+  <div class="detail-modal-overlay" id="detailModal" onclick="if(event.target===this)closeDetailModal()">
+    <div class="detail-modal">
+      <div class="detail-modal-header">
+        <h3 id="detailModalTitle">Details</h3>
+        <button class="detail-modal-close" onclick="closeDetailModal()">&times;</button>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="startBtn" onclick="startProcessing()">
-          Start Processing
-        </button>
-        <button class="btn btn-secondary" id="stopBtn" onclick="stopProcessing()" disabled>
-          Stop
-        </button>
-      </div>
+      <div class="detail-modal-body" id="detailModalBody"></div>
     </div>
-
-    <!-- Status Section -->
-    <div class="card">
-      <div class="status-header">
-        <div class="card-header" style="margin-bottom: 0;">Processing Status</div>
-        <span class="status-badge idle" id="statusBadge">Idle</span>
-      </div>
-
-      <div class="progress-section" id="progressSection">
-        <div class="progress-container">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progressBar"></div>
+  </div>
+  <div class="app">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
-          <div class="progress-text">
-            <span class="progress-label" id="progressLabel">0 / 0</span>
-            <span class="progress-current" id="currentCompany"></span>
+          <div>
+            <div class="sidebar-logo-text">Trustpilot Outreach</div>
+            <div class="sidebar-logo-sub">Automation Platform</div>
           </div>
         </div>
       </div>
-
-      <div class="progress-section" id="statsSection">
-        <div class="stats-grid">
-          <div class="stat-box">
-            <div class="stat-value" id="successCount">0</div>
-            <div class="stat-label">Successful</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-value" id="skippedCount">0</div>
-            <div class="stat-label">Skipped</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-value" id="failedCount">0</div>
-            <div class="stat-label">Failed</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Draft to Gmail Section -->
-    <div class="card">
-      <div class="gmail-header">
-        <div class="card-header" style="margin-bottom: 0;">Draft to Gmail</div>
-        <div class="gmail-info">
-          <span class="status-badge idle" id="gmailBadge">Checking...</span>
-          <span class="gmail-email" id="gmailEmail"></span>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="draftMode">Email Filter</label>
-        <select id="draftMode">
-          <option value="ready">Ready for Review Only</option>
-          <option value="all">All (Skip Already Drafted)</option>
-          <option value="force">Force All (Re-draft)</option>
-        </select>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="draftStartBtn" onclick="startDrafting()">
-          Create Gmail Drafts
+      <div class="sidebar-nav">
+        <button class="nav-item active" onclick="showPage('setup')" data-page="setup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Setup
         </button>
-        <button class="btn btn-secondary" id="draftStopBtn" onclick="stopDrafting()" disabled>
-          Stop
+        <button class="nav-item" onclick="showPage('process')" data-page="process">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Processing
+        </button>
+        <button class="nav-item" onclick="showPage('schedule')" data-page="schedule">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Schedule
         </button>
       </div>
+      <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <span class="status-dot gray" id="sidebarDot"></span>
+          <span id="sidebarStatusText">Idle</span>
+        </div>
+      </div>
+    </nav>
 
-      <!-- Draft Progress -->
-      <div id="draftProgressSection" style="display: none; margin-top: 24px;">
-        <div class="progress-container">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="draftProgressBar"></div>
+    <!-- Main Content -->
+    <main class="main">
+
+      <!-- ======== SETUP PAGE ======== -->
+      <section class="page-section active" id="page-setup">
+        <div class="page-header">
+          <h1 class="page-title">Setup</h1>
+          <p class="page-desc">Configure API keys, spreadsheet, and email accounts</p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Gemini AI</span>
+            <span class="field-status pending" id="geminiStatus"></span>
           </div>
-          <div class="progress-text">
-            <span class="progress-label" id="draftProgressLabel">0 / 0</span>
-            <span class="progress-current" id="draftCurrentCompany"></span>
-          </div>
-        </div>
-
-        <div class="stats-grid" style="margin-top: 16px;">
-          <div class="stat-box">
-            <div class="stat-value" id="draftedCount">0</div>
-            <div class="stat-label">Drafted</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-value" id="draftSkippedCount">0</div>
-            <div class="stat-label">Skipped</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-value" id="draftFailedCount">0</div>
-            <div class="stat-label">Failed</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="log-container" id="draftLogContainer" style="margin-top: 20px;">
-        <div class="log-entry">
-          <span class="log-time">--:--:--</span>
-          <span class="log-message">Draft system ready</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Scheduled Sending Section -->
-    <div class="card">
-      <div class="card-header">Schedule Email Sending</div>
-
-      <!-- Recovery Notification Banner -->
-      <div id="recoveryBanner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 6px; font-size: 13px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div id="recoveryMessage"></div>
-          <button onclick="dismissRecoveryBanner()" style="background: none; border: none; cursor: pointer; color: inherit; font-size: 16px; padding: 0 4px;">&times;</button>
-        </div>
-        <div id="recoveryDetails" style="margin-top: 8px; font-size: 12px; opacity: 0.9;"></div>
-      </div>
-
-      <!-- Test Draft Creation -->
-      <div style="padding: 16px; background: var(--charcoal); border-radius: 6px; margin-bottom: 20px;">
-        <div style="font-size: 13px; font-weight: 500; color: var(--off-white); margin-bottom: 12px;">Create Test Draft</div>
-        <div class="form-row">
-          <div class="form-group" style="flex: 2;">
-            <label class="form-label" for="testEmail">Recipient Email</label>
-            <input type="text" id="testEmail" placeholder="your@email.com" value="">
-          </div>
-          <div class="form-group" style="flex: 0 0 auto;">
-            <label class="form-label">&nbsp;</label>
-            <button class="btn btn-secondary" onclick="createTestDraft()">Create Test Draft</button>
-          </div>
-        </div>
-        <div id="testDraftResult" style="margin-top: 12px; font-size: 13px; display: none;"></div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="scheduleDate">Date</label>
-          <input type="date" id="scheduleDate" value="">
-          <script>
-            (function() {
-              const today = new Date().toISOString().slice(0,10);
-              const dateInput = document.getElementById('scheduleDate');
-              dateInput.value = today;
-              dateInput.min = today; // Can't select past dates
-            })();
-          </script>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="timezone">Timezone</label>
-          <select id="timezone">
-            <option value="America/New_York" selected>New York (ET)</option>
-            <option value="America/Los_Angeles">Los Angeles (PT)</option>
-            <option value="America/Chicago">Chicago (CT)</option>
-            <option value="America/Denver">Denver (MT)</option>
-            <option value="Europe/London">London (GMT/BST)</option>
-            <option value="Europe/Paris">Paris (CET/CEST)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row" style="margin-top: 16px;">
-        <div class="form-group">
-          <label class="form-label" for="scheduleStartTime">Start Time</label>
-          <input type="time" id="scheduleStartTime" value="09:00">
-          <script>
-            (function() {
-              const now = new Date();
-              now.setMinutes(now.getMinutes() + 1); // Add 1 minute
-              const hours = String(now.getHours()).padStart(2, '0');
-              const mins = String(now.getMinutes()).padStart(2, '0');
-              document.getElementById('scheduleStartTime').value = hours + ':' + mins;
-            })();
-          </script>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="scheduleEndTime">End Time</label>
-          <input type="time" id="scheduleEndTime" value="17:00">
-        </div>
-      </div>
-
-      <div class="form-row" style="margin-top: 16px;">
-        <div class="form-group">
-          <label class="form-label" for="minInterval">Min Interval (min)</label>
-          <input type="number" id="minInterval" value="15" min="1" max="120">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="maxInterval">Max Interval (min)</label>
-          <input type="number" id="maxInterval" value="25" min="1" max="120">
-        </div>
-      </div>
-
-      <div class="form-row" style="margin-top: 16px;">
-        <div class="form-group">
-          <label class="form-label" for="filterEmail">Filter by Email (optional - for testing)</label>
-          <input type="text" id="filterEmail" placeholder="e.g. you@gmail.com" value="">
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-secondary" id="previewScheduleBtn" onclick="previewSchedule()">
-          Preview Schedule
-        </button>
-        <button class="btn btn-primary" id="startScheduleBtn" onclick="startSchedule()" disabled>
-          Start Scheduled Sending
-        </button>
-        <button class="btn btn-secondary" id="stopScheduleBtn" onclick="stopSchedule()" disabled>
-          Stop
-        </button>
-      </div>
-
-      <!-- Schedule Warning -->
-      <div id="scheduleWarning" style="display: none; margin-top: 16px; padding: 12px 16px; background: rgba(245, 158, 11, 0.15); border-radius: 6px; color: var(--warning); font-size: 13px;"></div>
-
-      <!-- Schedule Preview Table -->
-      <div id="schedulePreviewSection" style="display: none; margin-top: 20px;">
-        <div style="font-size: 13px; font-weight: 500; color: var(--off-white); margin-bottom: 12px;">Schedule Preview</div>
-        <div style="overflow-x: auto;">
-          <table id="schedulePreviewTable" style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            <thead>
-              <tr style="background: var(--charcoal); color: var(--off-white);">
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Company</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Recipient</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Scheduled Time</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Your Local Time</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Status</th>
-                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--dark-gray);">Action</th>
-              </tr>
-            </thead>
-            <tbody id="schedulePreviewBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Schedule Progress -->
-      <div id="scheduleProgressSection" style="display: none; margin-top: 24px;">
-        <div class="progress-container">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="scheduleProgressBar"></div>
-          </div>
-          <div class="progress-text">
-            <span class="progress-label" id="scheduleProgressLabel">0 / 0</span>
-            <span class="progress-current" id="scheduleStatus">Preparing...</span>
+          <div class="panel-body">
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">API Key</label>
+                <div class="pw-wrap">
+                  <input type="password" id="setupGeminiKey" placeholder="AIza..." autocomplete="off">
+                  <button type="button" class="pw-toggle" onclick="togglePw('setupGeminiKey', this)">Show</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="testGeminiKey()" style="align-self: flex-end; margin-bottom: 0;">Test</button>
+            </div>
           </div>
         </div>
 
-        <div class="stats-grid" style="margin-top: 16px;">
-          <div class="stat-box">
-            <div class="stat-value" id="scheduleSentCount">0</div>
-            <div class="stat-label">Sent</div>
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Google Sheet</span>
+            <span class="field-status pending" id="sheetStatus"></span>
           </div>
-          <div class="stat-box">
-            <div class="stat-value" id="schedulePendingCount">0</div>
-            <div class="stat-label">Pending</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-value" id="scheduleFailedCount">0</div>
-            <div class="stat-label">Failed</div>
+          <div class="panel-body">
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">Sheet URL or ID</label>
+                <input type="text" id="setupSheetId" placeholder="https://docs.google.com/spreadsheets/d/...">
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="testSheetConnection()" style="align-self: flex-end;">Test</button>
+            </div>
+            <div class="field-hint">Paste the full Google Sheet URL or just the Sheet ID</div>
           </div>
         </div>
-      </div>
 
-      <div class="log-container" id="scheduleLogContainer" style="margin-top: 20px;">
-        <div class="log-entry">
-          <span class="log-time">--:--:--</span>
-          <span class="log-message">Schedule system ready</span>
-        </div>
-      </div>
-    </div>
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Gmail Account</span>
+            <span class="badge badge-idle" id="gmailSetupStatus">Checking...</span>
+          </div>
+          <div class="panel-body">
+            <div class="connected-row" id="gmailSetupSection">
+              <span class="connected-email" id="gmailSetupEmail"></span>
+              <div class="connected-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="connectGmail()" id="connectGmailBtn">Connect</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="disconnectGmail()" id="disconnectGmailBtn" disabled>Disconnect</button>
+              </div>
+            </div>
+            <div class="field-hint">Connect the Gmail account you want to authorize for sending</div>
 
-    <!-- Activity Log Section -->
-    <div class="card">
-      <div class="card-header">Activity Log</div>
-      <div class="log-container" id="logContainer">
-        <div class="log-entry">
-          <span class="log-time">--:--:--</span>
-          <span class="log-message">System initialized. Ready for input.</span>
+            <!-- Send From -->
+            <div id="sendFromSection" class="hidden" style="margin-top: 14px;">
+              <label class="field-label">Send Emails From</label>
+              <div class="field-row">
+                <div class="field">
+                  <select id="sendFromEmail" onchange="saveSendFrom()">
+                    <option value="">Loading addresses...</option>
+                  </select>
+                </div>
+                <span class="field-status pending" id="sendFromStatus"></span>
+              </div>
+              <div class="field-hint">Choose which email address appears as the sender</div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Service Account</span>
+            <span class="badge badge-idle" id="serviceAccountStatus">Checking...</span>
+          </div>
+          <div class="panel-body">
+            <div class="connected-row">
+              <span class="connected-email" id="serviceAccountEmail" style="word-break: break-all;"></span>
+            </div>
+            <div class="field-hint">Share your Google Sheet with this email address</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Import Leads</span>
+          </div>
+          <div class="panel-body">
+            <div class="field">
+              <label class="field-label">Upload CSV or XML</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="file" id="importFile" accept=".csv,.xml" style="flex: 1; font-size: 13px; color: var(--muted-foreground);">
+              </div>
+              <div class="field-hint">CSV columns: firstName, lastName, company, email, website. Rows are appended to the sheet.</div>
+            </div>
+            <div class="btn-row" style="margin-top: 12px;">
+              <button class="btn btn-primary" id="importBtn" onclick="importAndSync()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import &amp; Sync
+              </button>
+              <span id="importResult" style="font-size: 12px; align-self: center;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-body">
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="saveSetupSettings()">Save Settings</button>
+              <span id="saveStatus" style="align-self: center; font-size: 12px;"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== PROCESSING PAGE ======== -->
+      <section class="page-section" id="page-process">
+        <div class="page-header">
+          <h1 class="page-title">Processing</h1>
+          <p class="page-desc">Scrape Trustpilot reviews and generate outreach emails</p>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="kpi-row" id="processKpis">
+          <div class="kpi-card">
+            <div class="kpi-label">Processed</div>
+            <div class="kpi-value" id="kpiProcessed">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Successful</div>
+            <div class="kpi-value accent" id="successCount">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Skipped</div>
+            <div class="kpi-value warning" id="skippedCount">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Failed</div>
+            <div class="kpi-value error" id="failedCount">0</div>
+          </div>
+        </div>
+
+        <!-- Progress (shows during processing) -->
+        <div class="panel hidden" id="progressSection">
+          <div class="panel-body">
+            <div class="progress-track">
+              <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <div class="progress-meta">
+              <span class="progress-meta-label" id="progressLabel">0 / 0</span>
+              <span class="progress-meta-value" id="currentCompany"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leads Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Leads</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-idle" id="statusBadge">Idle</span>
+              <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Refresh leads">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="panel-body" style="padding: 0;">
+            <div id="leadsLoading" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
+              Loading leads from sheet...
+            </div>
+            <div id="leadsEmpty" class="hidden" style="padding: 32px; text-align: center; color: var(--muted-foreground); font-size: 13px;">
+              No leads found. Make sure leads are in Sheet1 (columns A-F).
+            </div>
+            <div id="leadsTableWrap" class="hidden" style="overflow-x: auto;">
+              <table class="tbl" id="leadsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 36px; padding-left: 14px;">
+                      <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)" style="accent-color: var(--chart-2); cursor: pointer;">
+                    </th>
+                    <th style="width: 48px;">#</th>
+                    <th>Name</th>
+                    <th>Company</th>
+                    <th>Email</th>
+                    <th>Website</th>
+                    <th style="width: 160px;">Status</th>
+                    <th style="width: 200px;">Draft</th>
+                    <th style="width: 80px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="leadsBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel-footer" id="leadsActions" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; color: var(--muted-foreground);" id="selectedCount">0 selected</span>
+              <div style="display: flex; gap: 4px; background: var(--secondary); border-radius: var(--radius-xs); padding: 2px;">
+                <button class="btn btn-ghost btn-sm select-mode-btn active" id="selUnprocessed" onclick="selectUnprocessed()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">Unprocessed</button>
+                <button class="btn btn-ghost btn-sm select-mode-btn" id="selPage" onclick="selectPage()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">Page</button>
+                <button class="btn btn-ghost btn-sm select-mode-btn" id="selAll" onclick="selectAllLeads()" style="padding: 4px 10px; font-size: 11px; border-radius: var(--radius-xs);">All</button>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadLeads()" title="Sync leads from sheet">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                Sync
+              </button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-sm" id="startBtn" onclick="startProcessing()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Process Selected
+              </button>
+              <button class="btn btn-ghost btn-sm" id="stopBtn" onclick="stopProcessing()" disabled>Stop</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Activity Log</span>
+          </div>
+          <div class="panel-body" style="padding: 12px;">
+            <div class="log" id="logContainer">
+              <div class="log-line">
+                <span class="log-ts">--:--:--</span>
+                <span class="log-msg">System initialized. Ready for input.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ======== SCHEDULE PAGE ======== -->
+      <section class="page-section" id="page-schedule">
+        <div class="page-header">
+          <h1 class="page-title">Schedule</h1>
+          <p class="page-desc">Schedule email sending with randomized intervals</p>
+        </div>
+
+        <!-- Recovery Banner -->
+        <div id="recoveryBanner" class="banner hidden">
+          <div>
+            <div id="recoveryMessage"></div>
+            <div id="recoveryDetails" style="margin-top: 6px; font-size: 12px; opacity: 0.85;"></div>
+          </div>
+          <button class="banner-close" onclick="dismissRecoveryBanner()">&times;</button>
+        </div>
+
+        <!-- Test Draft -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Test Draft</span></div>
+          <div class="panel-body">
+            <div class="field-row">
+              <div class="field" style="flex: 2;">
+                <label class="field-label" for="testEmail">Recipient Email</label>
+                <input type="text" id="testEmail" placeholder="you@email.com">
+              </div>
+              <button class="btn btn-ghost" onclick="createTestDraft()" style="align-self: flex-end;">Create Test Draft</button>
+            </div>
+            <div id="testDraftResult" class="hidden" style="margin-top: 10px; font-size: 13px;"></div>
+          </div>
+        </div>
+
+        <!-- Schedule Config -->
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Schedule Configuration</span></div>
+          <div class="panel-body">
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label" for="scheduleDate">Date</label>
+                <input type="date" id="scheduleDate">
+              </div>
+              <div class="field">
+                <label class="field-label" for="timezone">Timezone</label>
+                <select id="timezone">
+                  <optgroup label="Americas">
+                    <option value="America/New_York" selected>New York (ET)</option>
+                    <option value="America/Chicago">Chicago (CT)</option>
+                    <option value="America/Denver">Denver (MT)</option>
+                    <option value="America/Los_Angeles">Los Angeles (PT)</option>
+                    <option value="America/Toronto">Toronto (ET)</option>
+                    <option value="America/Mexico_City">Mexico City (CST)</option>
+                    <option value="America/Bogota">Bogota (COT)</option>
+                    <option value="America/Sao_Paulo">Sao Paulo (BRT)</option>
+                    <option value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">London (GMT/BST)</option>
+                    <option value="Europe/Paris">Paris (CET/CEST)</option>
+                    <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                    <option value="Europe/Madrid">Madrid (CET/CEST)</option>
+                    <option value="Europe/Rome">Rome (CET/CEST)</option>
+                    <option value="Europe/Amsterdam">Amsterdam (CET/CEST)</option>
+                    <option value="Europe/Bucharest">Bucharest (EET/EEST)</option>
+                    <option value="Europe/Moscow">Moscow (MSK)</option>
+                    <option value="Europe/Istanbul">Istanbul (TRT)</option>
+                  </optgroup>
+                  <optgroup label="Africa">
+                    <option value="Africa/Lagos">Lagos (WAT)</option>
+                    <option value="Africa/Cairo">Cairo (EET)</option>
+                    <option value="Africa/Johannesburg">Johannesburg (SAST)</option>
+                    <option value="Africa/Nairobi">Nairobi (EAT)</option>
+                    <option value="Africa/Casablanca">Casablanca (WET)</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="Asia/Dubai">Dubai (GST)</option>
+                    <option value="Asia/Kolkata">Mumbai / Delhi (IST)</option>
+                    <option value="Asia/Singapore">Singapore (SGT)</option>
+                    <option value="Asia/Shanghai">Shanghai / Beijing (CST)</option>
+                    <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                    <option value="Asia/Tokyo">Tokyo (JST)</option>
+                    <option value="Asia/Seoul">Seoul (KST)</option>
+                    <option value="Asia/Bangkok">Bangkok (ICT)</option>
+                    <option value="Asia/Jakarta">Jakarta (WIB)</option>
+                  </optgroup>
+                  <optgroup label="Oceania">
+                    <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                    <option value="Australia/Melbourne">Melbourne (AEST/AEDT)</option>
+                    <option value="Australia/Perth">Perth (AWST)</option>
+                    <option value="Pacific/Auckland">Auckland (NZST/NZDT)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+            <div class="field-row" style="margin-top: 12px;">
+              <div class="field">
+                <label class="field-label" for="scheduleStartTime">Start Time</label>
+                <input type="time" id="scheduleStartTime" value="09:00">
+              </div>
+              <div class="field">
+                <label class="field-label" for="scheduleEndTime">End Time</label>
+                <input type="time" id="scheduleEndTime" value="17:00">
+              </div>
+            </div>
+            <div class="field-row" style="margin-top: 12px;">
+              <div class="field">
+                <label class="field-label" for="minInterval">Min Interval (min)</label>
+                <input type="number" id="minInterval" value="15" min="1" max="120">
+              </div>
+              <div class="field">
+                <label class="field-label" for="maxInterval">Max Interval (min)</label>
+                <input type="number" id="maxInterval" value="25" min="1" max="120">
+              </div>
+            </div>
+            <div class="field" style="margin-top: 12px;">
+              <label class="field-label" for="filterEmail">Filter by Email (optional)</label>
+              <input type="text" id="filterEmail" placeholder="e.g. you@gmail.com">
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="previewScheduleBtn" onclick="previewSchedule()">Preview Schedule</button>
+              <button class="btn btn-primary" id="startScheduleBtn" onclick="startSchedule()" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Start Scheduled Sending
+              </button>
+              <button class="btn btn-ghost" id="stopScheduleBtn" onclick="stopSchedule()" disabled>Stop</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedule Warning -->
+        <div id="scheduleWarning" class="banner banner-warn hidden"></div>
+
+        <!-- Schedule Preview Table -->
+        <div class="panel hidden" id="schedulePreviewSection">
+          <div class="panel-header"><span class="panel-title">Schedule Preview</span></div>
+          <div class="panel-body" style="padding: 0; overflow-x: auto;">
+            <table class="tbl" id="schedulePreviewTable">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Recipient</th>
+                  <th>Scheduled Time</th>
+                  <th>Your Local Time</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="schedulePreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Schedule Progress -->
+        <div class="panel hidden" id="scheduleProgressSection">
+          <div class="panel-body">
+            <div class="progress-track">
+              <div class="progress-fill" id="scheduleProgressBar"></div>
+            </div>
+            <div class="progress-meta">
+              <span class="progress-meta-label" id="scheduleProgressLabel">0 / 0</span>
+              <span class="progress-meta-value" id="scheduleStatus">Preparing...</span>
+            </div>
+            <div class="stats-row" style="margin-top: 14px;">
+              <div class="stat-cell">
+                <div class="stat-num" id="scheduleSentCount">0</div>
+                <div class="stat-txt">Sent</div>
+              </div>
+              <div class="stat-cell">
+                <div class="stat-num" id="schedulePendingCount">0</div>
+                <div class="stat-txt">Pending</div>
+              </div>
+              <div class="stat-cell">
+                <div class="stat-num" id="scheduleFailedCount">0</div>
+                <div class="stat-txt">Failed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Schedule Log</span></div>
+          <div class="panel-body" style="padding: 12px;">
+            <div class="log" id="scheduleLogContainer">
+              <div class="log-line">
+                <span class="log-ts">--:--:--</span>
+                <span class="log-msg">Schedule system ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
   <script>
+    // ============ PAGE NAVIGATION ============
+    function showPage(page) {
+      document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + page).classList.add('active');
+      document.querySelector(`[data-page="${page}"]`).classList.add('active');
+    }
+
+    // ============ SIDEBAR STATUS ============
+    function updateSidebarStatus(text, color) {
+      document.getElementById('sidebarDot').className = 'status-dot ' + color;
+      document.getElementById('sidebarStatusText').textContent = text;
+    }
+
+    // ============ SETUP / SETTINGS ============
     let pollInterval = null;
 
-    // Fetch and set the first unprocessed row from Sheet1
-    async function refreshStartRow() {
-      try {
-        const res = await fetch('/api/first-unprocessed-row');
-        const data = await res.json();
-        if (res.ok && data.row) {
-          document.getElementById('startRow').value = data.row;
-          // Also update end row to match if it's less than start row
-          const endRowInput = document.getElementById('endRow');
-          if (parseInt(endRowInput.value) < data.row) {
-            endRowInput.value = data.row;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch first unprocessed row:', error);
-      }
+    function togglePw(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+      else { input.type = 'password'; btn.textContent = 'Show'; }
     }
 
-    // Auto-fetch start row on page load
-    refreshStartRow();
+    function setStatus(elementId, message, type) {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = 'field-status ' + type;
+    }
 
-    // Check for recovered scheduled emails on page load
-    async function checkRecoveryStatus() {
+    async function loadSettings() {
       try {
-        const res = await fetch('/api/schedule/recovery');
+        const res = await fetch('/api/settings');
         const data = await res.json();
 
-        if (!data.lastRecovery) return; // No recovery happened yet
+        if (data.geminiApiKey && data.geminiApiKey !== '') {
+          document.getElementById('setupGeminiKey').value = data.geminiApiKey;
+          setStatus('geminiStatus', 'Configured', 'valid');
+        }
 
-        const total = data.recovered + data.rescheduled + data.expired;
-        if (total === 0) return; // Nothing to report
+        if (data.googleSheetId) {
+          document.getElementById('setupSheetId').value = data.googleSheetUrl || data.googleSheetId;
+          setStatus('sheetStatus', 'Configured', 'valid');
+        }
 
-        const banner = document.getElementById('recoveryBanner');
-        const message = document.getElementById('recoveryMessage');
-        const details = document.getElementById('recoveryDetails');
-
-        // Determine banner color based on what happened
-        if (data.expired > 0) {
-          banner.style.background = 'rgba(245, 158, 11, 0.15)';
-          banner.style.color = 'var(--warning)';
+        const gmailBadge = document.getElementById('gmailSetupStatus');
+        const gmailEmailSpan = document.getElementById('gmailSetupEmail');
+        if (data.gmailConnected && data.gmailEmail) {
+          gmailBadge.textContent = 'Connected';
+          gmailBadge.className = 'badge badge-connected';
+          gmailEmailSpan.textContent = data.gmailEmail;
+          document.getElementById('disconnectGmailBtn').disabled = false;
+          loadSendAsAddresses();
+          updateSidebarStatus('Gmail connected', 'green');
         } else {
-          banner.style.background = 'rgba(34, 197, 94, 0.15)';
-          banner.style.color = 'var(--success)';
+          gmailBadge.textContent = 'Not Connected';
+          gmailBadge.className = 'badge badge-disconnected';
+          gmailEmailSpan.textContent = '';
+          document.getElementById('disconnectGmailBtn').disabled = true;
         }
 
-        // Build message
-        const parts = [];
-        if (data.recovered > 0) parts.push(`${data.recovered} restored`);
-        if (data.rescheduled > 0) parts.push(`${data.rescheduled} rescheduled`);
-        if (data.expired > 0) parts.push(`${data.expired} expired`);
-
-        message.innerHTML = `<strong>Schedule Recovery:</strong> ${parts.join(', ')}`;
-
-        // Build details
-        if (data.details && data.details.length > 0) {
-          const detailLines = data.details.map(d => {
-            if (d.action === 'restored') return `• ${d.company}: restored (original time)`;
-            if (d.action === 'rescheduled') return `• ${d.company}: moved +${d.daysAdded} day(s)`;
-            if (d.action === 'expired') return `• ${d.company}: expired (${d.daysOverdue} days overdue)`;
-            return `• ${d.company}: ${d.action}`;
-          });
-          details.innerHTML = detailLines.join('<br>');
+        const saBadge = document.getElementById('serviceAccountStatus');
+        const saEmail = document.getElementById('serviceAccountEmail');
+        if (data.serviceAccountConnected && data.serviceAccountEmail) {
+          saBadge.textContent = 'Connected';
+          saBadge.className = 'badge badge-connected';
+          saEmail.textContent = data.serviceAccountEmail;
+        } else {
+          saBadge.textContent = 'Not Connected';
+          saBadge.className = 'badge badge-disconnected';
+          saEmail.textContent = 'credentials.json not found';
         }
 
-        banner.style.display = 'block';
-
-        // Also update the schedule status if there are pending emails
-        if (data.recovered > 0 || data.rescheduled > 0) {
-          startSchedulePolling();
-        }
-      } catch (error) {
-        console.error('Failed to check recovery status:', error);
+      } catch (err) {
+        console.error('Failed to load settings:', err);
       }
     }
 
-    function dismissRecoveryBanner() {
-      document.getElementById('recoveryBanner').style.display = 'none';
+    async function testGeminiKey() {
+      const key = document.getElementById('setupGeminiKey').value;
+      setStatus('geminiStatus', 'Testing...', 'pending');
+      try {
+        const res = await fetch('/api/settings/test-gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        setStatus('geminiStatus', data.valid ? 'Valid' : 'Invalid - ' + (data.error || 'Unknown'), data.valid ? 'valid' : 'invalid');
+      } catch (err) {
+        setStatus('geminiStatus', 'Error: ' + err.message, 'invalid');
+      }
     }
 
-    // Check recovery status on page load
-    checkRecoveryStatus();
+    async function testSheetConnection() {
+      const sheetId = document.getElementById('setupSheetId').value;
+      setStatus('sheetStatus', 'Testing...', 'pending');
+      try {
+        const res = await fetch('/api/settings/test-sheet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetId })
+        });
+        const data = await res.json();
+        setStatus('sheetStatus', data.valid ? data.rowCount + ' rows found' : 'Invalid - ' + (data.error || 'Unknown'), data.valid ? 'valid' : 'invalid');
+      } catch (err) {
+        setStatus('sheetStatus', 'Error: ' + err.message, 'invalid');
+      }
+    }
+
+    async function connectGmail() {
+      const btn = document.getElementById('connectGmailBtn');
+      btn.disabled = true;
+      btn.textContent = 'Connecting...';
+      const gmailBadge = document.getElementById('gmailSetupStatus');
+      gmailBadge.textContent = 'Authorizing...';
+      gmailBadge.className = 'badge badge-running';
+
+      try {
+        await fetch('/api/settings/gmail-auth', { method: 'POST' });
+        let attempts = 0;
+        const checkInterval = setInterval(async () => {
+          attempts++;
+          try {
+            const res = await fetch('/api/draft/check');
+            const data = await res.json();
+            if (data.connected) {
+              clearInterval(checkInterval);
+              gmailBadge.textContent = 'Connected';
+              gmailBadge.className = 'badge badge-connected';
+              document.getElementById('gmailSetupEmail').textContent = data.email;
+              document.getElementById('disconnectGmailBtn').disabled = false;
+              btn.disabled = false;
+              btn.textContent = 'Connect';
+              loadSendAsAddresses();
+              updateSidebarStatus('Gmail connected', 'green');
+            }
+          } catch (e) { /* keep polling */ }
+          if (attempts > 60) {
+            clearInterval(checkInterval);
+            gmailBadge.textContent = 'Timeout';
+            gmailBadge.className = 'badge badge-error';
+            btn.disabled = false;
+            btn.textContent = 'Connect';
+          }
+        }, 2000);
+      } catch (err) {
+        gmailBadge.textContent = 'Error';
+        gmailBadge.className = 'badge badge-error';
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+      }
+    }
+
+    async function disconnectGmail() {
+      if (!confirm('Disconnect Gmail account?')) return;
+      try {
+        const res = await fetch('/api/settings/gmail-disconnect', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('gmailSetupStatus').textContent = 'Not Connected';
+          document.getElementById('gmailSetupStatus').className = 'badge badge-disconnected';
+          document.getElementById('gmailSetupEmail').textContent = '';
+          document.getElementById('disconnectGmailBtn').disabled = true;
+          document.getElementById('sendFromSection').classList.add('hidden');
+          updateSidebarStatus('Idle', 'gray');
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function saveSetupSettings() {
+      const geminiKey = document.getElementById('setupGeminiKey').value;
+      const sheetId = document.getElementById('setupSheetId').value;
+      const statusEl = document.getElementById('saveStatus');
+      statusEl.style.color = 'var(--muted-foreground)';
+      statusEl.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ geminiApiKey: geminiKey, googleSheetId: sheetId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusEl.style.color = 'var(--success)';
+          statusEl.textContent = 'Settings saved';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        } else {
+          statusEl.style.color = 'var(--error)';
+          statusEl.textContent = 'Error: ' + (data.error || 'Failed');
+        }
+      } catch (err) {
+        statusEl.style.color = 'var(--error)';
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    async function importAndSync() {
+      const fileInput = document.getElementById('importFile');
+      const resultEl = document.getElementById('importResult');
+      const btn = document.getElementById('importBtn');
+
+      if (!fileInput.files.length) {
+        resultEl.style.color = 'var(--error)';
+        resultEl.textContent = 'Select a file first.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      btn.disabled = true;
+      resultEl.style.color = 'var(--muted-foreground)';
+      resultEl.textContent = 'Uploading...';
+
+      try {
+        const res = await fetch('/api/import-leads', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success) {
+          resultEl.style.color = 'var(--error)';
+          resultEl.textContent = data.error || 'Import failed';
+          btn.disabled = false;
+          return;
+        }
+
+        resultEl.style.color = 'var(--success)';
+        resultEl.textContent = `Imported ${data.imported} leads. Syncing...`;
+        fileInput.value = '';
+
+        resultEl.textContent = `Imported ${data.imported} leads. Syncing...`;
+
+        // Short pause so user sees the success, then sync and redirect
+        setTimeout(async () => {
+          await loadLeads();
+          showPage('process');
+          btn.disabled = false;
+          resultEl.textContent = '';
+        }, 800);
+
+      } catch (err) {
+        resultEl.style.color = 'var(--error)';
+        resultEl.textContent = 'Error: ' + err.message;
+        btn.disabled = false;
+      }
+    }
+
+    async function loadSendAsAddresses() {
+      try {
+        const res = await fetch('/api/settings/gmail-send-as');
+        const data = await res.json();
+        const select = document.getElementById('sendFromEmail');
+        const section = document.getElementById('sendFromSection');
+        if (data.addresses && data.addresses.length > 0) {
+          section.classList.remove('hidden');
+          select.innerHTML = data.addresses.map(a => {
+            const badge = a.isPrimary ? ' (primary)' : '';
+            const selected = (data.savedSender === a.email) ? 'selected' : '';
+            return `<option value="${a.email}" ${selected}>${a.email}${badge}</option>`;
+          }).join('');
+        }
+      } catch (err) {
+        console.log('Could not load send-as addresses:', err);
+      }
+    }
+
+    async function saveSendFrom() {
+      const email = document.getElementById('sendFromEmail').value;
+      try {
+        await fetch('/api/settings/send-from', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        setStatus('sendFromStatus', 'Saved', 'valid');
+        setTimeout(() => setStatus('sendFromStatus', '', 'pending'), 2000);
+      } catch (err) {
+        setStatus('sendFromStatus', 'Error', 'invalid');
+      }
+    }
+
+    // Init
+    loadSettings();
+
+    // ============ PROCESSING ============
+
+    let allLeads = [];
+    let currentPage = 1;
+    const LEADS_PER_PAGE = 15;
+
+    async function loadLeads() {
+      const loading = document.getElementById('leadsLoading');
+      const empty = document.getElementById('leadsEmpty');
+      const wrap = document.getElementById('leadsTableWrap');
+      loading.classList.remove('hidden');
+      empty.classList.add('hidden');
+      wrap.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/leads');
+        const data = await res.json();
+        allLeads = data.leads || [];
+
+        loading.classList.add('hidden');
+        if (allLeads.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        wrap.classList.remove('hidden');
+        currentPage = 1;
+        renderLeadsTable(allLeads);
+      } catch (err) {
+        loading.textContent = 'Failed to load leads: ' + err.message;
+      }
+    }
+
+    function renderLeadsTable(leads) {
+      // Sort: unprocessed first, processed at bottom
+      const sorted = [...leads].sort((a, b) => {
+        const aProc = isProcessed(a.status);
+        const bProc = isProcessed(b.status);
+        if (aProc !== bProc) return aProc ? 1 : -1;
+        return a.rowNumber - b.rowNumber;
+      });
+
+      const totalPages = Math.ceil(sorted.length / LEADS_PER_PAGE);
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * LEADS_PER_PAGE;
+      const pageLeads = sorted.slice(start, start + LEADS_PER_PAGE);
+
+      const tbody = document.getElementById('leadsBody');
+      tbody.innerHTML = pageLeads.map(lead => {
+        const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—';
+        const statusClass = lead.status ? 'lead-status-' + lead.status.toLowerCase().replace(/[^a-z]/g, '') : '';
+        const proc = isProcessed(lead.status);
+
+        // Draft preview — extract subject from variant A
+        let draftPreview = '';
+        if (lead.emailDraft) {
+          try {
+            let text = lead.emailDraft;
+            if (text.startsWith('{')) {
+              const parsed = JSON.parse(text);
+              text = parsed?.variants?.A?.email || '';
+            }
+            const firstLine = text.trim().split('\n')[0] || '';
+            draftPreview = firstLine.toLowerCase().startsWith('subject:')
+              ? firstLine.replace(/^subject:\s*/i, '').trim()
+              : firstLine.substring(0, 40);
+          } catch(e) { draftPreview = '(draft)'; }
+        }
+
+        const hasDraft = !!lead.emailDraft && lead.emailDraft !== 'N/A';
+        const canRedraft = !!lead.trustpilotUrl;
+
+        return `<tr data-row="${lead.rowNumber}" class="${proc ? 'lead-done' : ''}">
+          <td style="padding-left: 14px;">
+            <input type="checkbox" class="lead-check" value="${lead.rowNumber}" onchange="updateSelectedCount()" ${proc ? 'disabled' : ''} style="accent-color: var(--chart-2); cursor: ${proc ? 'not-allowed' : 'pointer'};">
+          </td>
+          <td style="font-family: var(--font-mono); font-size: 11px; opacity: 0.5;">${lead.rowNumber}</td>
+          <td style="color: var(--foreground);">${esc(name)}</td>
+          <td>${esc(lead.company)}</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">${esc(lead.email)}</td>
+          <td style="font-size: 12px;">${esc(lead.website)}</td>
+          <td>
+            <span class="lead-status ${statusClass || 'lead-status-none'}" id="lead-status-${lead.rowNumber}">${esc(lead.status) || '—'}</span>
+            <span class="lead-detail" id="lead-detail-${lead.rowNumber}"></span>
+          </td>
+          <td style="font-size: 11px; color: var(--muted-foreground);">
+            ${hasDraft
+              ? `<span class="clickable" onclick="viewDraft(${lead.rowNumber})" style="cursor:pointer; text-decoration: underline dotted; text-underline-offset: 2px;">${esc(draftPreview) || 'View draft'}</span>`
+              : '<span style="opacity:0.4;">—</span>'}
+          </td>
+          <td>
+            ${canRedraft
+              ? `<button class="btn btn-ghost btn-sm" onclick="redraftLead(${lead.rowNumber})" id="redraft-${lead.rowNumber}" style="font-size: 11px; padding: 3px 8px;">Redraft</button>`
+              : ''}
+          </td>
+        </tr>`;
+      }).join('');
+
+      // Render pagination
+      renderPagination(sorted.length, totalPages);
+    }
+
+    function renderPagination(total, totalPages) {
+      let pag = document.getElementById('leadsPagination');
+      if (!pag) {
+        pag = document.createElement('div');
+        pag.id = 'leadsPagination';
+        pag.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: var(--muted-foreground);';
+        const wrap = document.getElementById('leadsTableWrap');
+        wrap.parentNode.insertBefore(pag, wrap.nextSibling);
+      }
+      if (totalPages <= 1) { pag.innerHTML = `<span>${total} leads</span>`; return; }
+
+      let html = `<span>${total} leads</span><span style="margin: 0 8px;">|</span>`;
+      html += `<button class="btn btn-ghost btn-sm" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} style="padding: 2px 8px; font-size: 11px;">&laquo;</button>`;
+      for (let p = 1; p <= totalPages; p++) {
+        const active = p === currentPage ? 'background: var(--chart-2); color: #fff; border-radius: var(--radius-xs);' : '';
+        html += `<button class="btn btn-ghost btn-sm" onclick="goToPage(${p})" style="padding: 2px 10px; font-size: 11px; ${active}">${p}</button>`;
+      }
+      html += `<button class="btn btn-ghost btn-sm" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} style="padding: 2px 8px; font-size: 11px;">&raquo;</button>`;
+      pag.innerHTML = html;
+    }
+
+    function goToPage(page) {
+      const totalPages = Math.ceil(allLeads.length / LEADS_PER_PAGE);
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderLeadsTable(allLeads);
+    }
+
+    function isProcessed(status) {
+      if (!status) return false;
+      const s = status.toLowerCase();
+      return ['processed', 'done', 'emailed', 'drafted', 'email', 'sent', 'skipped', 'generated'].some(k => s.includes(k));
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function getSelectedRows() {
+      // If "Select All" mode is active, return all unprocessed lead rows
+      if (window._selectAllMode) {
+        return allLeads.filter(l => !isProcessed(l.status)).map(l => l.rowNumber);
+      }
+      return [...document.querySelectorAll('.lead-check:checked')].map(cb => parseInt(cb.value));
+    }
+
+    function updateSelectedCount() {
+      window._selectAllMode = false; // Reset when manually changing selection
+      const count = [...document.querySelectorAll('.lead-check:checked')].length;
+      document.getElementById('selectedCount').textContent = count + ' selected';
+    }
+
+    function setActiveSelectMode(btnId) {
+      document.querySelectorAll('.select-mode-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById(btnId);
+      if (btn) btn.classList.add('active');
+    }
+
+    function selectUnprocessed() {
+      document.querySelectorAll('.lead-check').forEach(cb => {
+        cb.checked = !cb.disabled;
+      });
+      document.getElementById('selectAll').checked = false;
+      setActiveSelectMode('selUnprocessed');
+      updateSelectedCount();
+    }
+
+    function selectPage() {
+      document.querySelectorAll('.lead-check').forEach(cb => {
+        if (!cb.disabled) cb.checked = true;
+        else cb.checked = true; // select all on page including processed
+      });
+      document.getElementById('selectAll').checked = true;
+      setActiveSelectMode('selPage');
+      updateSelectedCount();
+    }
+
+    function selectAllLeads() {
+      // Check all on current page, then mark all leads as selected
+      document.querySelectorAll('.lead-check').forEach(cb => { cb.checked = true; });
+      document.getElementById('selectAll').checked = true;
+      setActiveSelectMode('selAll');
+      // Store flag so startProcessing sends all rows, not just visible page
+      window._selectAllMode = true;
+      const total = allLeads.filter(l => !isProcessed(l.status)).length;
+      document.getElementById('selectedCount').textContent = total + ' selected (all)';
+    }
+
+    function toggleSelectAll(checked) {
+      document.querySelectorAll('.lead-check').forEach(cb => {
+        if (!cb.disabled) cb.checked = checked;
+      });
+      updateSelectedCount();
+    }
 
     async function startProcessing() {
-      const startRow = document.getElementById('startRow').value || 18;
-      const endRow = document.getElementById('endRow').value || startRow;
-
+      const rows = getSelectedRows();
+      if (rows.length === 0) {
+        addLog('No leads selected. Select rows to process.');
+        return;
+      }
       try {
         const res = await fetch('/api/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startRow, endRow })
+          body: JSON.stringify({ rows })
         });
-
         const data = await res.json();
-
         if (res.ok) {
           document.getElementById('startBtn').disabled = true;
           document.getElementById('stopBtn').disabled = false;
-          document.getElementById('progressSection').classList.add('active');
-          document.getElementById('statsSection').classList.add('active');
+          document.getElementById('progressSection').classList.remove('hidden');
+          updateSidebarStatus('Processing...', 'green');
           startPolling();
         } else {
           addLog('Error: ' + (data.error || 'Failed to start'));
         }
-      } catch (err) {
-        addLog('Error: ' + err.message);
-      }
+      } catch (err) { addLog('Error: ' + err.message); }
     }
 
     async function stopProcessing() {
-      try {
-        await fetch('/api/stop', { method: 'POST' });
-      } catch (err) {
-        console.error(err);
-      }
+      try { await fetch('/api/stop', { method: 'POST' }); } catch (err) { console.error(err); }
     }
 
     function startPolling() {
@@ -853,371 +1908,329 @@
         const res = await fetch('/api/status');
         const data = await res.json();
 
-        // Update progress
         const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
         document.getElementById('progressBar').style.width = progress + '%';
         document.getElementById('progressLabel').textContent = `${data.progress} / ${data.total}`;
         document.getElementById('currentCompany').textContent = data.current || '';
-
-        // Update stats
+        document.getElementById('kpiProcessed').textContent = data.progress;
         document.getElementById('successCount').textContent = data.results.successful;
         document.getElementById('skippedCount').textContent = data.results.skipped;
         document.getElementById('failedCount').textContent = data.results.failed;
 
-        // Update status badge
+        // Update per-lead statuses from job data
+        if (data.leads && data.leads.length > 0) {
+          data.leads.forEach(lead => {
+            const statusEl = document.getElementById('lead-status-' + lead.rowNumber);
+            const detailEl = document.getElementById('lead-detail-' + lead.rowNumber);
+            const row = document.querySelector(`tr[data-row="${lead.rowNumber}"]`);
+            if (!statusEl) return;
+
+            const statusMap = {
+              queued: { cls: 'lead-status-queued', label: 'Queued' },
+              processing: { cls: 'lead-status-processing', label: 'Processing' },
+              done: { cls: 'lead-status-done', label: 'Done' },
+              skipped: { cls: 'lead-status-skipped', label: 'Skipped' },
+              failed: { cls: 'lead-status-failed', label: 'Failed' }
+            };
+            const info = statusMap[lead.status] || { cls: 'lead-status-none', label: lead.status || '—' };
+            const dot = lead.status === 'processing' ? '<span class="pulse-dot"></span> ' : '';
+            statusEl.className = 'lead-status ' + info.cls;
+            statusEl.innerHTML = dot + info.label;
+            if (detailEl && lead.detail) {
+              const full = lead.detail;
+              if (full.length > 80) {
+                detailEl.textContent = full.substring(0, 77) + '...';
+                detailEl.classList.add('clickable');
+                detailEl.onclick = () => openDetailModal(lead.company || 'Lead', full);
+              } else {
+                detailEl.textContent = full;
+                detailEl.classList.remove('clickable');
+                detailEl.onclick = null;
+              }
+            } else if (detailEl) {
+              detailEl.textContent = '';
+            }
+
+            if (row) {
+              row.classList.toggle('lead-processing', lead.status === 'processing');
+              row.classList.toggle('lead-done', lead.status === 'done');
+            }
+          });
+        }
+
         const badge = document.getElementById('statusBadge');
         if (data.running) {
           badge.textContent = 'Processing';
-          badge.className = 'status-badge running';
+          badge.className = 'badge badge-running';
         } else if (data.progress > 0) {
           badge.textContent = 'Complete';
-          badge.className = 'status-badge completed';
+          badge.className = 'badge badge-success';
           document.getElementById('startBtn').disabled = false;
           document.getElementById('stopBtn').disabled = true;
-          if (pollInterval) {
-            clearInterval(pollInterval);
-            pollInterval = null;
-          }
+          updateSidebarStatus('Idle', 'gray');
+          if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
         } else {
           badge.textContent = 'Idle';
-          badge.className = 'status-badge idle';
+          badge.className = 'badge badge-idle';
         }
 
-        // Update logs
         const logContainer = document.getElementById('logContainer');
         if (data.logs.length > 0) {
-          logContainer.innerHTML = data.logs.map(log => `
-            <div class="log-entry">
-              <span class="log-time">${log.time}</span>
-              <span class="log-message">${log.message}</span>
-            </div>
-          `).join('');
+          logContainer.innerHTML = data.logs.map(log => {
+            const msg = log.message || '';
+            if (msg.length > 120) {
+              const short = msg.substring(0, 117) + '...';
+              const escaped = msg.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+              return `<div class="log-line"><span class="log-ts">${log.time}</span><span class="log-msg clickable" onclick="openDetailModal('Log',\`${escaped}\`)">${short}</span></div>`;
+            }
+            return `<div class="log-line"><span class="log-ts">${log.time}</span><span class="log-msg">${msg}</span></div>`;
+          }).join('');
           logContainer.scrollTop = logContainer.scrollHeight;
         }
-
-      } catch (err) {
-        console.error('Poll error:', err);
-      }
+      } catch (err) { console.error('Poll error:', err); }
     }
 
     function addLog(message) {
       const logContainer = document.getElementById('logContainer');
       const time = new Date().toLocaleTimeString();
-      logContainer.innerHTML += `
-        <div class="log-entry">
-          <span class="log-time">${time}</span>
-          <span class="log-message">${message}</span>
-        </div>
-      `;
+      const msg = message || '';
+      if (msg.length > 120) {
+        const short = msg.substring(0, 117) + '...';
+        const escaped = msg.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+        logContainer.innerHTML += `<div class="log-line"><span class="log-ts">${time}</span><span class="log-msg clickable" onclick="openDetailModal('Log',\`${escaped}\`)">${short}</span></div>`;
+      } else {
+        logContainer.innerHTML += `<div class="log-line"><span class="log-ts">${time}</span><span class="log-msg">${msg}</span></div>`;
+      }
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    // Check status on page load
-    updateStatus();
-
-    // ============ DRAFT EMAILS FUNCTIONS ============
-
-    let draftPollInterval = null;
-
-    // Check Gmail connection on page load
-    checkGmailConnection();
-
-    async function checkGmailConnection() {
-      const badge = document.getElementById('gmailBadge');
-      const emailSpan = document.getElementById('gmailEmail');
-
-      try {
-        const res = await fetch('/api/draft/check');
-        const data = await res.json();
-
-        if (data.connected) {
-          badge.textContent = 'Connected';
-          badge.className = 'status-badge connected';
-          emailSpan.textContent = data.email;
-        } else {
-          badge.textContent = 'Not Connected';
-          badge.className = 'status-badge disconnected';
-          emailSpan.textContent = 'Authorization required';
-        }
-      } catch (err) {
-        badge.textContent = 'Error';
-        badge.className = 'status-badge disconnected';
-        emailSpan.textContent = err.message;
-      }
+    // Detail modal functions
+    function openDetailModal(title, content) {
+      document.getElementById('detailModalTitle').textContent = title;
+      document.getElementById('detailModalBody').textContent = content;
+      document.getElementById('detailModal').classList.add('open');
     }
-
-    async function startDrafting() {
-      const mode = document.getElementById('draftMode').value;
-
-      addDraftLog('Starting draft creation...');
-
-      try {
-        const res = await fetch('/api/draft/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode })
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          document.getElementById('draftStartBtn').disabled = true;
-          document.getElementById('draftStopBtn').disabled = false;
-          document.getElementById('draftProgressSection').style.display = 'block';
-          document.getElementById('gmailBadge').textContent = 'Drafting';
-          document.getElementById('gmailBadge').className = 'status-badge drafting';
-          startDraftPolling();
-        } else {
-          addDraftLog('Error: ' + (data.error || 'Failed to start'));
-        }
-      } catch (err) {
-        addDraftLog('Error: ' + err.message);
-      }
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.remove('open');
     }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetailModal(); });
 
-    async function stopDrafting() {
+    // View full draft in modal
+    function viewDraft(rowNumber) {
+      const lead = allLeads.find(l => l.rowNumber === rowNumber);
+      if (!lead || !lead.emailDraft) return;
+      let content = lead.emailDraft;
       try {
-        await fetch('/api/draft/stop', { method: 'POST' });
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    function startDraftPolling() {
-      draftPollInterval = setInterval(updateDraftStatus, 1000);
-      updateDraftStatus();
-    }
-
-    async function updateDraftStatus() {
-      try {
-        const res = await fetch('/api/draft/status');
-        const data = await res.json();
-
-        // Update progress
-        const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
-        document.getElementById('draftProgressBar').style.width = progress + '%';
-        document.getElementById('draftProgressLabel').textContent = `${data.progress} / ${data.total}`;
-        document.getElementById('draftCurrentCompany').textContent = data.current || '';
-
-        // Update stats
-        document.getElementById('draftedCount').textContent = data.results.drafted;
-        document.getElementById('draftSkippedCount').textContent = data.results.skipped;
-        document.getElementById('draftFailedCount').textContent = data.results.failed;
-
-        // Update Gmail badge
-        const badge = document.getElementById('gmailBadge');
-        if (data.running) {
-          badge.textContent = 'Drafting';
-          badge.className = 'status-badge drafting';
-        } else if (data.gmailConnected) {
-          badge.textContent = 'Connected';
-          badge.className = 'status-badge connected';
-          document.getElementById('draftStartBtn').disabled = false;
-          document.getElementById('draftStopBtn').disabled = true;
-          if (draftPollInterval) {
-            clearInterval(draftPollInterval);
-            draftPollInterval = null;
+        if (content.startsWith('{')) {
+          const parsed = JSON.parse(content);
+          if (parsed.variants) {
+            const parts = [];
+            ['A', 'B', 'C'].forEach(v => {
+              if (parsed.variants[v]) {
+                parts.push(`--- Variant ${v}: ${parsed.variants[v].strategy || ''} ---\n\n${parsed.variants[v].email || ''}`);
+              }
+            });
+            content = parts.join('\n\n');
           }
         }
+      } catch(e) {}
+      openDetailModal(`${lead.company} — Email Draft`, content);
+    }
 
-        // Update logs
-        const logContainer = document.getElementById('draftLogContainer');
-        if (data.logs.length > 0) {
-          logContainer.innerHTML = data.logs.map(log => `
-            <div class="log-entry">
-              <span class="log-time">${log.time}</span>
-              <span class="log-message">${log.message}</span>
-            </div>
-          `).join('');
-          logContainer.scrollTop = logContainer.scrollHeight;
+    // Redraft a lead
+    async function redraftLead(rowNumber) {
+      const btn = document.getElementById('redraft-' + rowNumber);
+      if (btn) { btn.disabled = true; btn.textContent = 'Drafting...'; }
+      try {
+        const res = await fetch('/api/redraft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rowNumber })
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert('Redraft failed: ' + data.error);
+        } else {
+          addLog(`Redrafted row ${rowNumber}: ${data.subject || 'done'}`);
+          loadLeads(); // Refresh table
         }
-
       } catch (err) {
-        console.error('Draft poll error:', err);
+        alert('Redraft error: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Redraft'; }
       }
     }
 
-    function addDraftLog(message) {
-      const logContainer = document.getElementById('draftLogContainer');
-      const time = new Date().toLocaleTimeString();
-      logContainer.innerHTML += `
-        <div class="log-entry">
-          <span class="log-time">${time}</span>
-          <span class="log-message">${message}</span>
-        </div>
-      `;
-      logContainer.scrollTop = logContainer.scrollHeight;
-    }
+    // Load leads on init and poll status
+    loadLeads();
+    updateStatus();
 
-    // ============ SCHEDULED SENDING FUNCTIONS ============
+
+    // ============ SCHEDULED SENDING ============
 
     let schedulePollInterval = null;
     let schedulePreviewData = null;
 
-    // Timezone mapping for display
     const TIMEZONE_LABELS = {
-      'America/New_York': 'ET',
-      'America/Chicago': 'CT',
-      'America/Denver': 'MT',
-      'America/Los_Angeles': 'PT',
-      'Europe/London': 'GMT',
-      'Europe/Paris': 'CET'
+      'America/New_York': 'ET', 'America/Chicago': 'CT',
+      'America/Denver': 'MT', 'America/Los_Angeles': 'PT',
+      'America/Toronto': 'ET', 'America/Mexico_City': 'CST',
+      'America/Bogota': 'COT', 'America/Sao_Paulo': 'BRT',
+      'America/Argentina/Buenos_Aires': 'ART',
+      'Europe/London': 'GMT', 'Europe/Paris': 'CET',
+      'Europe/Berlin': 'CET', 'Europe/Madrid': 'CET',
+      'Europe/Rome': 'CET', 'Europe/Amsterdam': 'CET',
+      'Europe/Bucharest': 'EET', 'Europe/Moscow': 'MSK',
+      'Europe/Istanbul': 'TRT',
+      'Africa/Lagos': 'WAT', 'Africa/Cairo': 'EET',
+      'Africa/Johannesburg': 'SAST', 'Africa/Nairobi': 'EAT',
+      'Africa/Casablanca': 'WET',
+      'Asia/Dubai': 'GST', 'Asia/Kolkata': 'IST',
+      'Asia/Singapore': 'SGT', 'Asia/Shanghai': 'CST',
+      'Asia/Hong_Kong': 'HKT', 'Asia/Tokyo': 'JST',
+      'Asia/Seoul': 'KST', 'Asia/Bangkok': 'ICT',
+      'Asia/Jakarta': 'WIB',
+      'Australia/Sydney': 'AEST', 'Australia/Melbourne': 'AEST',
+      'Australia/Perth': 'AWST', 'Pacific/Auckland': 'NZST'
     };
 
-    // Get user's local timezone label
     function getLocalTimezoneLabel() {
       try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         return TIMEZONE_LABELS[tz] || tz.split('/').pop().replace('_', ' ');
-      } catch (e) {
-        return 'Local';
-      }
+      } catch (e) { return 'Local'; }
     }
 
-    // Format time showing both selected timezone and local time
-    // Returns an object with both times for flexible display
     function formatTimeInTimezone(isoString, timezone) {
-      if (!isoString) return { selected: 'N/A', local: 'N/A', combined: 'N/A' };
+      if (!isoString) return { selected: 'N/A', local: 'N/A' };
       const tz = timezone || 'America/New_York';
       const label = TIMEZONE_LABELS[tz] || tz;
       const localLabel = getLocalTimezoneLabel();
-
       const date = new Date(isoString);
-
-      // Format in selected timezone
-      const selectedTime = date.toLocaleString('en-US', {
-        timeZone: tz,
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-
-      // Format in local timezone
-      const localTime = date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-
+      const fmt = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+      const selectedTime = date.toLocaleString('en-US', { timeZone: tz, ...fmt });
+      const localTime = date.toLocaleString('en-US', fmt);
       return {
         selected: `${selectedTime} ${label}`,
-        local: `${localTime} ${localLabel}`,
-        combined: `${selectedTime} ${label}<br><span style="color: var(--light-gray); font-size: 11px;">${localTime} ${localLabel}</span>`
+        local: `${localTime} ${localLabel}`
       };
     }
 
-    // Set default date to today on page load and check for existing scheduled emails
-    document.addEventListener('DOMContentLoaded', async function() {
+    // Set default date
+    (function() {
       const today = new Date().toISOString().slice(0, 10);
-      document.getElementById('scheduleDate').value = today;
+      const dateInput = document.getElementById('scheduleDate');
+      dateInput.value = today;
+      dateInput.min = today;
+      // Set start time to now + 1 minute
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 1);
+      document.getElementById('scheduleStartTime').value =
+        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    })();
 
-      // Check for existing scheduled emails (from server memory or recovered from sheet)
+    // Check for existing scheduled emails on load
+    document.addEventListener('DOMContentLoaded', async function() {
       await checkForExistingScheduledEmails();
+      await checkRecoveryStatus();
     });
 
     async function checkForExistingScheduledEmails() {
       try {
         const res = await fetch('/api/schedule/status');
         const data = await res.json();
-
-        // If there are scheduled emails in memory, show them
         if (data.scheduledEmails && data.scheduledEmails.length > 0) {
-          console.log(`[INIT] Found ${data.scheduledEmails.length} scheduled emails in server memory`);
           const tz = data.settings?.timezone || 'America/New_York';
-
-          // Show the preview section
-          document.getElementById('schedulePreviewSection').style.display = 'block';
-
-          // Populate the preview table
-          const tbody = document.getElementById('schedulePreviewBody');
-          tbody.innerHTML = data.scheduledEmails.map(email => {
-            let statusClass = 'idle';
-            let statusText = 'Pending';
-
-            if (email.status === 'sent') {
-              statusClass = 'connected';
-              statusText = 'Sent';
-            } else if (email.status === 'failed') {
-              statusClass = 'disconnected';
-              statusText = 'Failed';
-            } else if (email.status === 'cancelled') {
-              statusClass = 'idle';
-              statusText = 'Cancelled';
-            }
-
-            const times = formatTimeInTimezone(email.scheduledTime, tz);
-
-            // Show cancel button for pending emails
-            const actionBtn = email.status === 'pending'
-              ? `<button onclick="cancelScheduledEmail('${email.company}')" style="background: var(--error); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Cancel</button>`
-              : '-';
-
-            return `
-              <tr>
-                <td>${email.company}</td>
-                <td>${email.ceoEmail}</td>
-                <td style="color: var(--success);">${times.selected}</td>
-                <td style="color: var(--light-gray);">${times.local}</td>
-                <td><span class="status-dot ${statusClass}"></span> ${statusText}</td>
-                <td>${actionBtn}</td>
-              </tr>
-            `;
-          }).join('');
-
-          // Update stats
+          document.getElementById('schedulePreviewSection').classList.remove('hidden');
+          renderScheduleTable(data.scheduledEmails, tz);
           document.getElementById('scheduleSentCount').textContent = data.results.sent;
           document.getElementById('schedulePendingCount').textContent = data.results.pending;
           document.getElementById('scheduleFailedCount').textContent = data.results.failed;
-
-          // Handle buttons based on state
           const hasPending = data.scheduledEmails.some(e => e.status === 'pending');
           if (hasPending) {
-            // Has pending emails - allow adding more
             document.getElementById('stopScheduleBtn').disabled = false;
-            document.getElementById('previewScheduleBtn').disabled = false;
             document.getElementById('startScheduleBtn').disabled = false;
             document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
-            // Start polling for updates
             startSchedulePolling();
-            addScheduleLog(`Restored: ${data.scheduledEmails.filter(e => e.status === 'pending').length} pending email(s) found`);
-          } else {
-            document.getElementById('stopScheduleBtn').disabled = true;
-            document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
+            addScheduleLog(`Restored: ${data.scheduledEmails.filter(e => e.status === 'pending').length} pending email(s)`);
           }
         }
-      } catch (err) {
-        console.error('[INIT] Error checking for scheduled emails:', err);
-      }
+      } catch (err) { console.error(err); }
+    }
+
+    async function checkRecoveryStatus() {
+      try {
+        const res = await fetch('/api/schedule/recovery');
+        const data = await res.json();
+        if (!data.lastRecovery) return;
+        const total = data.recovered + data.rescheduled + data.expired;
+        if (total === 0) return;
+        const banner = document.getElementById('recoveryBanner');
+        banner.classList.remove('hidden');
+        banner.className = 'banner ' + (data.expired > 0 ? 'banner-warn' : 'banner-success');
+        const parts = [];
+        if (data.recovered > 0) parts.push(`${data.recovered} restored`);
+        if (data.rescheduled > 0) parts.push(`${data.rescheduled} rescheduled`);
+        if (data.expired > 0) parts.push(`${data.expired} expired`);
+        document.getElementById('recoveryMessage').innerHTML = `<strong>Schedule Recovery:</strong> ${parts.join(', ')}`;
+        if (data.details && data.details.length > 0) {
+          document.getElementById('recoveryDetails').innerHTML = data.details.map(d => {
+            if (d.action === 'restored') return `${d.company}: restored`;
+            if (d.action === 'rescheduled') return `${d.company}: moved +${d.daysAdded}d`;
+            if (d.action === 'expired') return `${d.company}: expired (${d.daysOverdue}d overdue)`;
+            return `${d.company}: ${d.action}`;
+          }).join(' | ');
+        }
+        if (data.recovered > 0 || data.rescheduled > 0) startSchedulePolling();
+      } catch (error) { console.error(error); }
+    }
+
+    function dismissRecoveryBanner() {
+      document.getElementById('recoveryBanner').classList.add('hidden');
+    }
+
+    function renderScheduleTable(emails, tz) {
+      const tbody = document.getElementById('schedulePreviewBody');
+      tbody.innerHTML = emails.map(email => {
+        let badgeClass = 'badge-idle', statusText = 'Pending';
+        if (email.status === 'sent') { badgeClass = 'badge-success'; statusText = 'Sent'; }
+        else if (email.status === 'failed') { badgeClass = 'badge-error'; statusText = 'Failed'; }
+        else if (email.status === 'cancelled') { badgeClass = 'badge-idle'; statusText = 'Cancelled'; }
+        else if (email.status && email.status.startsWith('blocked')) { badgeClass = 'badge-error'; statusText = 'Blocked'; }
+        const times = formatTimeInTimezone(email.scheduledTime, tz);
+        const cancelBtn = email.status === 'pending'
+          ? `<button class="btn btn-danger btn-sm" onclick="cancelScheduledEmail('${email.company.replace(/'/g, "\\'")}')">Cancel</button>`
+          : '-';
+        return `<tr>
+          <td style="color: var(--text-primary); font-weight: 500;">${email.company}</td>
+          <td style="font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
+          <td style="color: var(--accent);">${times.selected}</td>
+          <td>${times.local}</td>
+          <td><span class="badge ${badgeClass}">${statusText}</span></td>
+          <td>${cancelBtn}</td>
+        </tr>`;
+      }).join('');
     }
 
     async function createTestDraft() {
       const email = document.getElementById('testEmail').value;
       const resultDiv = document.getElementById('testDraftResult');
-
       if (!email) {
         resultDiv.innerHTML = '<span style="color: var(--error);">Please enter an email address</span>';
-        resultDiv.style.display = 'block';
+        resultDiv.classList.remove('hidden');
         return;
       }
-
-      resultDiv.innerHTML = '<span style="color: var(--light-gray);">Creating test draft...</span>';
-      resultDiv.style.display = 'block';
-
+      resultDiv.innerHTML = '<span style="color: var(--text-muted);">Creating test draft...</span>';
+      resultDiv.classList.remove('hidden');
       try {
         const res = await fetch('/api/schedule/test-draft', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })
         });
-
         const data = await res.json();
-
         if (res.ok) {
-          resultDiv.innerHTML = `<span style="color: var(--success);">Test draft created: "${data.subject}"</span>`;
+          resultDiv.innerHTML = `<span style="color: var(--accent);">Test draft created: "${data.subject}"</span>`;
           addScheduleLog(`Test draft created for ${email}`);
         } else {
           resultDiv.innerHTML = `<span style="color: var(--error);">Error: ${data.error}</span>`;
@@ -1228,87 +2241,42 @@
     }
 
     function showScheduleError(message) {
-      const warningDiv = document.getElementById('scheduleWarning');
-      warningDiv.textContent = message;
-      warningDiv.style.display = 'block';
-      warningDiv.style.background = 'rgba(239, 68, 68, 0.15)';
-      warningDiv.style.color = 'var(--error)';
+      const w = document.getElementById('scheduleWarning');
+      w.textContent = message;
+      w.classList.remove('hidden');
+      w.className = 'banner banner-error';
       addScheduleLog('Error: ' + message);
-      // Hide preview table on error
-      document.getElementById('schedulePreviewSection').style.display = 'none';
+      document.getElementById('schedulePreviewSection').classList.add('hidden');
       document.getElementById('startScheduleBtn').disabled = true;
     }
 
     function clearScheduleError() {
-      const warningDiv = document.getElementById('scheduleWarning');
-      warningDiv.style.display = 'none';
-      warningDiv.style.background = 'rgba(245, 158, 11, 0.15)';
-      warningDiv.style.color = 'var(--warning)';
+      document.getElementById('scheduleWarning').classList.add('hidden');
     }
 
     async function previewSchedule() {
-      // Clear any previous errors
       clearScheduleError();
-
-      // Show loading state
       const tbody = document.getElementById('schedulePreviewBody');
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" style="padding: 20px; text-align: center; color: var(--light-gray);">
-            Loading...
-          </td>
-        </tr>
-      `;
-      document.getElementById('schedulePreviewSection').style.display = 'block';
+      tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading...</td></tr>`;
+      document.getElementById('schedulePreviewSection').classList.remove('hidden');
 
       try {
-        // First, check if there are already scheduled emails
         const statusRes = await fetch('/api/schedule/status');
         const statusData = await statusRes.json();
-        const hasPendingScheduled = statusData.scheduledEmails &&
-          statusData.scheduledEmails.some(e => e.status === 'pending');
+        const hasPendingScheduled = statusData.scheduledEmails && statusData.scheduledEmails.some(e => e.status === 'pending');
 
         if (hasPendingScheduled) {
-          // Show already scheduled emails with cancel buttons
           const tz = statusData.settings?.timezone || 'America/New_York';
-          tbody.innerHTML = statusData.scheduledEmails.map(email => {
-            let statusClass = 'idle';
-            let statusText = 'Pending';
-            if (email.status === 'sent') { statusClass = 'connected'; statusText = 'Sent'; }
-            else if (email.status === 'failed') { statusClass = 'disconnected'; statusText = 'Failed'; }
-            else if (email.status === 'cancelled') { statusClass = 'idle'; statusText = 'Cancelled'; }
-            const times = formatTimeInTimezone(email.scheduledTime, tz);
-            const actionBtn = email.status === 'pending'
-              ? `<button onclick="cancelScheduledEmail('${email.company.replace(/'/g, "\\'")}')" style="background: var(--error); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Cancel</button>`
-              : '-';
-            return `
-              <tr style="border-bottom: 1px solid var(--dark-gray);">
-                <td style="padding: 10px; color: var(--white);">${email.company}</td>
-                <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
-                <td style="padding: 10px; color: var(--success);">${times.selected}</td>
-                <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
-                <td style="padding: 10px;"><span class="status-dot ${statusClass}"></span> ${statusText}</td>
-                <td style="padding: 10px;">${actionBtn}</td>
-              </tr>
-            `;
-          }).join('');
-
+          renderScheduleTable(statusData.scheduledEmails, tz);
           const pendingCount = statusData.scheduledEmails.filter(e => e.status === 'pending').length;
           addScheduleLog(`Showing ${pendingCount} scheduled email(s)`);
-
-          // Update button states
           document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
           document.getElementById('startScheduleBtn').disabled = false;
           document.getElementById('stopScheduleBtn').disabled = false;
-
-          // Start polling if not already
-          if (!schedulePollInterval) {
-            startSchedulePolling();
-          }
+          if (!schedulePollInterval) startSchedulePolling();
           return;
         }
 
-        // No scheduled emails - check for drafted emails to schedule
         const scheduleDate = document.getElementById('scheduleDate').value;
         const timezone = document.getElementById('timezone').value;
         const startTime = document.getElementById('scheduleStartTime').value;
@@ -1317,77 +2285,51 @@
         const maxInterval = document.getElementById('maxInterval').value;
         const filterEmail = document.getElementById('filterEmail').value;
 
-        // Validation only needed when scheduling new emails
-        if (endTime <= startTime) {
-          showScheduleError('End time must be later than start time.');
-          return;
-        }
+        if (endTime <= startTime) { showScheduleError('End time must be later than start time.'); return; }
 
         addScheduleLog('Calculating schedule preview...');
-        if (filterEmail) {
-          addScheduleLog(`Filtering by: ${filterEmail}`);
-        }
+        if (filterEmail) addScheduleLog(`Filtering by: ${filterEmail}`);
 
         const res = await fetch('/api/schedule/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
         });
-
         const data = await res.json();
-
-        if (!res.ok) {
-          showScheduleError(data.error || 'Failed to preview');
-          return;
-        }
+        if (!res.ok) { showScheduleError(data.error || 'Failed to preview'); return; }
 
         schedulePreviewData = data;
 
-        // Show/hide warning
         const warningDiv = document.getElementById('scheduleWarning');
         if (data.warning) {
           warningDiv.textContent = data.warning;
-          warningDiv.style.display = 'block';
+          warningDiv.className = 'banner banner-warn';
+          warningDiv.classList.remove('hidden');
         } else {
-          warningDiv.style.display = 'none';
+          warningDiv.classList.add('hidden');
         }
 
-        // Populate preview table with drafted emails
         if (data.emails.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="6" style="padding: 20px; text-align: center; color: var(--light-gray);">
-                No drafted emails found. Create drafts first.
-              </td>
-            </tr>
-          `;
+          tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No drafted emails found. Create drafts first.</td></tr>`;
           document.getElementById('startScheduleBtn').disabled = true;
         } else {
-          const previewTz = document.getElementById('timezone').value || 'America/New_York';
-          tbody.innerHTML = data.emails.map((email, index) => {
+          const previewTz = timezone || 'America/New_York';
+          tbody.innerHTML = data.emails.map(email => {
             const times = email.scheduledTime ? formatTimeInTimezone(email.scheduledTime, previewTz) : { selected: 'Not scheduled', local: '-' };
-            return `
-            <tr style="border-bottom: 1px solid var(--dark-gray);">
-              <td style="padding: 10px; color: var(--white);">${email.company}</td>
-              <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
-              <td style="padding: 10px; color: ${email.scheduledTime ? 'var(--success)' : 'var(--light-gray)'};">${times.selected}</td>
-              <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
-              <td style="padding: 10px;">
-                <span class="status-badge ${email.scheduledTime ? 'idle' : 'disconnected'}">
-                  ${email.scheduledTime ? 'Ready' : 'Not scheduled'}
-                </span>
-              </td>
-              <td style="padding: 10px;">-</td>
-            </tr>
-          `}).join('');
+            return `<tr>
+              <td style="color: var(--text-primary); font-weight: 500;">${email.company}</td>
+              <td style="font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
+              <td style="color: ${email.scheduledTime ? 'var(--accent)' : 'var(--text-muted)'};">${times.selected}</td>
+              <td>${times.local}</td>
+              <td><span class="badge ${email.scheduledTime ? 'badge-idle' : 'badge-error'}">${email.scheduledTime ? 'Ready' : 'Not scheduled'}</span></td>
+              <td>-</td>
+            </tr>`;
+          }).join('');
           document.getElementById('startScheduleBtn').disabled = false;
           document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
         }
-
         addScheduleLog(`Preview ready: ${data.emails.filter(e => e.scheduledTime).length} emails will be scheduled`);
-      } catch (err) {
-        addScheduleLog('Error: ' + err.message);
-      }
+      } catch (err) { addScheduleLog('Error: ' + err.message); }
     }
 
     async function startSchedule() {
@@ -1400,9 +2342,7 @@
       const filterEmail = document.getElementById('filterEmail').value;
 
       addScheduleLog('Starting scheduled sending...');
-      if (filterEmail) {
-        addScheduleLog(`Filter active: ${filterEmail}`);
-      }
+      if (filterEmail) addScheduleLog(`Filter active: ${filterEmail}`);
 
       try {
         const res = await fetch('/api/schedule/start', {
@@ -1410,25 +2350,17 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scheduleDate, timezone, startTime, endTime, minInterval, maxInterval, filterEmail })
         });
-
         const data = await res.json();
-
         if (res.ok) {
-          // Show progress section and start polling
-          document.getElementById('scheduleProgressSection').style.display = 'block';
+          document.getElementById('scheduleProgressSection').classList.remove('hidden');
           document.getElementById('stopScheduleBtn').disabled = false;
-          // Keep preview/start enabled - they'll be managed by updateScheduleStatus
-          // which allows adding more emails while others are pending
-          if (data.existingPending) {
-            addScheduleLog(`Adding to ${data.existingPending} existing pending email(s)`);
-          }
+          if (data.existingPending) addScheduleLog(`Adding to ${data.existingPending} existing pending email(s)`);
+          updateSidebarStatus('Sending scheduled...', 'green');
           startSchedulePolling();
         } else {
           addScheduleLog('Error: ' + (data.error || 'Failed to start'));
         }
-      } catch (err) {
-        addScheduleLog('Error: ' + err.message);
-      }
+      } catch (err) { addScheduleLog('Error: ' + err.message); }
     }
 
     async function stopSchedule() {
@@ -1436,18 +2368,15 @@
         const res = await fetch('/api/schedule/stop', { method: 'POST' });
         const data = await res.json();
         addScheduleLog(data.message || 'Schedule stopped');
-        // Reset button text
         document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
         document.getElementById('stopScheduleBtn').disabled = true;
-        // Trigger immediate status update
+        updateSidebarStatus('Idle', 'gray');
         updateScheduleStatus();
-      } catch (err) {
-        console.error(err);
-        addScheduleLog('Error stopping schedule');
-      }
+      } catch (err) { addScheduleLog('Error stopping schedule'); }
     }
 
     function startSchedulePolling() {
+      if (schedulePollInterval) return;
       schedulePollInterval = setInterval(updateScheduleStatus, 1000);
       updateScheduleStatus();
     }
@@ -1457,144 +2386,68 @@
         const res = await fetch('/api/schedule/status');
         const data = await res.json();
 
-        // Update progress
         const progress = data.total > 0 ? (data.progress / data.total) * 100 : 0;
         document.getElementById('scheduleProgressBar').style.width = progress + '%';
         document.getElementById('scheduleProgressLabel').textContent = `${data.progress} / ${data.total}`;
-
-        // Update stats
         document.getElementById('scheduleSentCount').textContent = data.results.sent;
         document.getElementById('schedulePendingCount').textContent = data.results.pending;
         document.getElementById('scheduleFailedCount').textContent = data.results.failed;
 
-        // Update status text and buttons
         const hasPending = data.scheduledEmails && data.scheduledEmails.some(e => e.status === 'pending');
         if (data.running) {
-          // Actively processing a batch - disable start button temporarily
-          document.getElementById('scheduleStatus').textContent = `Scheduling...`;
-          document.getElementById('previewScheduleBtn').disabled = false;
+          document.getElementById('scheduleStatus').textContent = 'Scheduling...';
           document.getElementById('startScheduleBtn').disabled = true;
           document.getElementById('stopScheduleBtn').disabled = false;
         } else if (hasPending) {
-          // Has pending emails waiting for their scheduled time
-          document.getElementById('scheduleStatus').textContent = `Waiting for next send...`;
-          document.getElementById('previewScheduleBtn').disabled = false;
+          document.getElementById('scheduleStatus').textContent = 'Waiting for next send...';
           document.getElementById('startScheduleBtn').disabled = false;
           document.getElementById('startScheduleBtn').textContent = 'Add to Schedule';
           document.getElementById('stopScheduleBtn').disabled = false;
         } else if (data.progress > 0) {
-          // All done
           document.getElementById('scheduleStatus').textContent = 'Complete';
-          document.getElementById('previewScheduleBtn').disabled = false;
           document.getElementById('startScheduleBtn').disabled = false;
           document.getElementById('startScheduleBtn').textContent = 'Start Scheduled Sending';
           document.getElementById('stopScheduleBtn').disabled = true;
-          if (schedulePollInterval) {
-            clearInterval(schedulePollInterval);
-            schedulePollInterval = null;
-          }
+          updateSidebarStatus('Idle', 'gray');
+          if (schedulePollInterval) { clearInterval(schedulePollInterval); schedulePollInterval = null; }
         }
 
-        // Update preview table with current statuses (ALWAYS update, even if empty)
-        const tbody = document.getElementById('schedulePreviewBody');
         const tz = data.settings?.timezone || 'America/New_York';
         if (data.scheduledEmails && data.scheduledEmails.length > 0) {
-          tbody.innerHTML = data.scheduledEmails.map(email => {
-            let statusClass = 'idle';
-            let statusText = 'Pending';
-
-            if (email.status === 'sent') {
-              statusClass = 'connected';
-              statusText = 'Sent';
-            } else if (email.status === 'failed') {
-              statusClass = 'disconnected';
-              statusText = 'Failed';
-            } else if (email.status === 'cancelled') {
-              statusClass = 'idle';
-              statusText = 'Cancelled';
-            } else if (email.status && email.status.startsWith('blocked')) {
-              statusClass = 'disconnected';
-              statusText = 'Blocked';
-            }
-
-            const times = formatTimeInTimezone(email.scheduledTime, tz);
-
-            const cancelBtn = email.status === 'pending'
-              ? `<button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="cancelScheduledEmail('${email.company.replace(/'/g, "\\'")}')">Cancel</button>`
-              : '-';
-
-            return `
-              <tr style="border-bottom: 1px solid var(--dark-gray);">
-                <td style="padding: 10px; color: var(--white);">${email.company}</td>
-                <td style="padding: 10px; color: var(--light-gray); font-family: monospace; font-size: 12px;">${email.ceoEmail}</td>
-                <td style="padding: 10px; color: var(--success);">${times.selected}</td>
-                <td style="padding: 10px; color: var(--light-gray);">${times.local}</td>
-                <td style="padding: 10px;">
-                  <span class="status-badge ${statusClass}">${statusText}</span>
-                </td>
-                <td style="padding: 10px;">${cancelBtn}</td>
-              </tr>
-            `;
-          }).join('');
+          renderScheduleTable(data.scheduledEmails, tz);
         } else {
-          // Clear the table when no scheduled emails
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="6" style="padding: 20px; text-align: center; color: var(--light-gray);">
-                No emails currently scheduled.
-              </td>
-            </tr>
-          `;
+          document.getElementById('schedulePreviewBody').innerHTML =
+            `<tr><td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No emails currently scheduled.</td></tr>`;
         }
 
-        // Update logs
         const logContainer = document.getElementById('scheduleLogContainer');
         if (data.logs.length > 0) {
-          logContainer.innerHTML = data.logs.map(log => `
-            <div class="log-entry">
-              <span class="log-time">${log.time}</span>
-              <span class="log-message">${log.message}</span>
-            </div>
-          `).join('');
+          logContainer.innerHTML = data.logs.map(log =>
+            `<div class="log-line"><span class="log-ts">${log.time}</span><span class="log-msg">${log.message}</span></div>`
+          ).join('');
           logContainer.scrollTop = logContainer.scrollHeight;
         }
-
-      } catch (err) {
-        console.error('Schedule poll error:', err);
-      }
+      } catch (err) { console.error('Schedule poll error:', err); }
     }
 
     async function cancelScheduledEmail(company) {
+      addScheduleLog(`Cancelling: ${company}...`);
       try {
-        addScheduleLog(`Cancelling: ${company}...`);
         const res = await fetch('/api/schedule/cancel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ company })
         });
-
         const data = await res.json();
-        if (res.ok) {
-          addScheduleLog(`Cancelled: ${company}`);
-          // Refresh the status to update the table
-          updateScheduleStatus();
-        } else {
-          addScheduleLog(`Error cancelling ${company}: ${data.error || 'Unknown error'}`);
-        }
-      } catch (err) {
-        addScheduleLog(`Error: ${err.message}`);
-      }
+        if (res.ok) { addScheduleLog(`Cancelled: ${company}`); updateScheduleStatus(); }
+        else { addScheduleLog(`Error cancelling ${company}: ${data.error || 'Unknown error'}`); }
+      } catch (err) { addScheduleLog(`Error: ${err.message}`); }
     }
 
     function addScheduleLog(message) {
       const logContainer = document.getElementById('scheduleLogContainer');
       const time = new Date().toLocaleTimeString();
-      logContainer.innerHTML += `
-        <div class="log-entry">
-          <span class="log-time">${time}</span>
-          <span class="log-message">${message}</span>
-        </div>
-      `;
+      logContainer.innerHTML += `<div class="log-line"><span class="log-ts">${time}</span><span class="log-msg">${message}</span></div>`;
       logContainer.scrollTop = logContainer.scrollHeight;
     }
   </script>
