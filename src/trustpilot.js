@@ -98,7 +98,7 @@ async function _googleFallback(page, companyName) {
   try {
     const q = encodeURIComponent(`site:trustpilot.com/review ${companyName}`);
     const url = `https://www.google.com/search?q=${q}&hl=en`;
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 12000 });
     const href = await page.evaluate(() => {
       const anchors = Array.from(document.querySelectorAll('a'));
       for (const a of anchors) {
@@ -118,27 +118,27 @@ async function _warmUp(page) {
   // Trustpilot uses AWS WAF: first request returns 403 and sets aws-waf-token;
   // subsequent requests with that cookie succeed.
   try {
-    await page.goto('https://www.trustpilot.com/', { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await new Promise(r => setTimeout(r, 1500));
+    await page.goto('https://www.trustpilot.com/', { waitUntil: 'domcontentloaded', timeout: 10000 });
+    await new Promise(r => setTimeout(r, 800));
   } catch {}
 }
 
-async function _gotoWithRetry(page, url, maxAttempts = 3) {
+async function _gotoWithRetry(page, url, maxAttempts = 2, timeout = 12000) {
   let lastResp = null;
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout });
       lastResp = resp;
       const status = resp?.status() ?? 0;
       if (status && status < 400) return resp;
       if (status === 403 && i < maxAttempts - 1) {
-        await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+        await new Promise(r => setTimeout(r, 800));
         continue;
       }
       return resp;
     } catch (err) {
       if (i === maxAttempts - 1) throw err;
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 800));
     }
   }
   return lastResp;
@@ -217,7 +217,7 @@ async function _findTrustpilotPage(browser, website, companyName) {
     const googleHit = await _googleFallback(page, companyName);
     if (googleHit) {
       console.log(`  Found via Google: ${googleHit}`);
-      await page.goto(googleHit, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
+      await page.goto(googleHit, { waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => null);
       await page.waitForSelector('[data-review-id], [class*="reviewCard"]', { timeout: 8000 }).catch(() => {});
       const hasReviews = await page.$('[data-review-id], [class*="review"]');
       if (hasReviews) {
@@ -249,7 +249,7 @@ async function _scrapeReviews(browser, url, stars = [1, 2], maxReviews = 20) {
       const reviewUrl = `${url}?stars=${star}`;
       console.log(`  Scraping ${star}-star reviews from: ${reviewUrl}`);
 
-      await _gotoWithRetry(page, reviewUrl);
+      await _gotoWithRetry(page, reviewUrl, 2, 25000);
 
       // Wait for reviews to load
       await page.waitForSelector('[data-review-id], [class*="reviewCard"]', { timeout: 15000 }).catch(() => {  // Increased from 10s to 15s
