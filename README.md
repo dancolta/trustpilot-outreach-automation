@@ -1,244 +1,61 @@
-# Trustpilot Outreach Automation
+# Turn competitor Trustpilot complaints into cold emails worth replying to.
+
+![License: ISC](https://img.shields.io/badge/license-ISC-blue?style=flat) ![Node 18+](https://img.shields.io/badge/node-%3E%3D18-43853d?style=flat) ![Self-hosted](https://img.shields.io/badge/self--hosted-yes-black?style=flat)
+
+Open-source signal-based outbound for founder-led sales. Scrapes 1★/2★ Trustpilot reviews, drafts three personalized cold emails per lead with Gemini, and stages them in Gmail for you to read before anything sends.
 
 ![Pipeline](demo.gif)
 
-**A signal-trigger outbound engine.** Turns public intent signals — 1★ and 2★ Trustpilot reviews — into personalized, pain-specific cold emails that land in the prospect's inbox inside a controlled send window.
+> **What this is not.** Not a spray-and-pray sender. Not a paid intent-data vendor. Not an autonomous AI that emails strangers on your behalf. Drafts land in your Gmail. You ship.
 
-Every unhappy review on Trustpilot is a **buying signal in plain sight**: an active, unresolved operational problem that your service is positioned to fix. This tool detects those signals at scale, maps them to your ICP and offer, and converts them into a qualified outbound motion — no SDR guesswork, no generic templates.
+---
 
-### The signal → action loop
+## Why this exists
+
+Cold outbound has two failure modes. You either pay Apollo, Instantly, or Smartlead a few hundred a month to blast scraped lists with `{{first_name}}` openers and watch your domain reputation cook — or you pay Clay $349 plus enrichment credits to do it more elegantly. Both assume the signal is the list. The list is not the signal.
+
+A 1-star Trustpilot review is. Someone publicly raised their hand and said *the thing your service fixes is broken at this company right now*. That is intent data, free, timestamped, and written in the prospect's own words. The hard part has always been reading thousands of reviews, mapping them to your ICP, and writing the email. That's the part this automates — and only that part. You still hit send.
+
+---
+
+## How it works
 
 ```
-Signal          →  Trigger              →  Action
-1★ / 2★ review  →  Pain matches offer   →  Personalized email in Gmail drafts
-                                            (scheduled, rate-limited, tz-aware)
+  Trustpilot 1★/2★ reviews
+           │
+           ▼
+   Puppeteer scraper           (stealth, rate-limited, public pages only)
+           │
+           ▼
+   Gemini 2.5 Flash             (analyzes through your Outreach Profile lens
+           │                     — pain, offer, tone, review focus)
+           ▼
+   3 email variants             (Direct Value · Curiosity Gap · Peer Comparison
+           │                     — each cites the actual reviewer quote)
+           ▼
+   Gmail drafts                 (default mode. Nothing sends. You decide.)
+           │
+           ▼
+   Optional: scheduled send     (randomized intervals, business hours, your tz)
 ```
 
-### Why signal-based outbound
+Three steps for the operator:
 
-- **Intent is public** — Trustpilot complaints are first-party evidence of unmet need. No third-party intent data, no cookies, no guesswork.
-- **Personalization at pipeline velocity** — every email cites the prospect's own reviewer language. 3 A/B variants per lead (Direct Value / Curiosity Gap / Peer Comparison).
-- **Outreach Profiles** — configure the pain signals you care about (late deliveries, SEO drops, checkout bugs, bad CX). The AI filters and frames around your wedge.
-- **Controlled send motion** — randomized intervals inside business hours, automatic overflow to the next day, timezone-aware. Deliverability-safe by default.
-
-**Built for:** signal-based outbound teams, agencies running founder-led sales, consultancies targeting accounts with visible operational breakage on Trustpilot — across any vertical.
-
-![Setup Overview](screenshots/01-setup-overview.png)
+1. **Import leads** (CSV upload or Google Sheet sync). Each row is a company you'd consider a fit.
+2. **Click Run.** The pipeline finds each company's Trustpilot page, scrapes recent negative reviews, generates three email variants per lead, and writes them as Gmail drafts.
+3. **Open Gmail.** Read each draft. Keep, edit, delete, or send.
 
 ---
 
-## Table of Contents
+## What a draft actually looks like
 
-- [How It Works](#how-it-works)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Walkthrough](#walkthrough)
-  - [Setup Tab](#1-setup-tab)
-  - [Outreach Profiles](#2-outreach-profiles)
-  - [Delivery Settings](#3-delivery-settings)
-  - [Processing Tab](#4-processing-tab)
-- [Email Generation](#email-generation)
-- [Scheduled Sending](#scheduled-sending)
-- [Google Sheet Structure](#google-sheet-structure)
-- [API Reference](#api-reference)
-- [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
+Three variants, generated in parallel, each citing the prospect's own customer language. Example output for a fulfillment-issue lead:
 
----
+**Variant A — Direct Value**
 
-## How It Works
-
-```
-  Leads (CSV or Google Sheet)
-           |
-           v
-  Trustpilot Scraper (Puppeteer)
-  - Searches by website domain
-  - Scrapes 1-2 star reviews (past 6 months)
-           |
-           v
-  Gemini AI (gemini-2.5-flash)
-  - Analyzes reviews through active Outreach Profile lens
-  - Identifies pain points matching your service
-  - Selects the most compelling customer quote
-           |
-           v
-  Email Generator (3 A/B Variants)
-  +----------------------------------+
-  |  A: Direct Value                 |
-  |  B: Curiosity Gap                |
-  |  C: Peer Comparison              |
-  +----------------------------------+
-           |
-           v
-  Gmail Drafts  -->  Scheduled Send
-                     (business hours, randomized intervals)
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | Node.js + Express |
-| Frontend | Vanilla JS single-page app (dark theme, shadcn palette) |
-| Scraping | Puppeteer (headless Chromium) |
-| AI | Google Gemini `gemini-2.5-flash` |
-| Spreadsheet | Google Sheets API v4 (service account) |
-| Email | Gmail API (OAuth2) |
-
----
-
-## Getting Started
-
-### 1. Clone and install
-
-```bash
-git clone https://github.com/dancolta/trustpilot-outreach-automation.git
-cd trustpilot-outreach-automation
-npm install
-```
-
-### 2. Get a Gemini API key
-
-Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and create a key. You can enter it directly in the web UI.
-
-### 3. Set up Google Cloud
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Enable **Google Sheets API** and **Gmail API**
-3. **Service Account** (for Sheets):
-   - IAM & Admin > Service Accounts > Create
-   - Download JSON key > save as `credentials.json` in project root
-   - Share your Google Sheet with the service account email
-4. **OAuth 2.0 Client** (for Gmail):
-   - Credentials > Create > OAuth 2.0 Client ID > **Desktop app**
-   - Download JSON > save as `gmail-credentials.json` in project root
-
-### 4. Start the server
-
-```bash
-npm run web
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### 5. Complete setup in the UI
-
-The Setup tab walks you through connecting each service. All settings persist to `settings.json` automatically.
-
----
-
-## Walkthrough
-
-### 1. Setup Tab
-
-The Setup tab uses collapsible accordion panels for each integration. Status badges show connection state at a glance.
-
-![Setup Overview](screenshots/01-setup-overview.png)
-
-| Panel | Purpose |
-|---|---|
-| **Gemini AI** | Enter and live-test your API key |
-| **Google Sheet** | Paste Sheet URL or ID; auto-formats headers on first connect |
-| **Gmail Account** | OAuth2 connection with send-as alias support |
-| **Service Account** | Displays the service account email for Sheet sharing |
-| **Outreach Profile** | Configure what you sell and who you target (see below) |
-| **Delivery Settings** | Control how and when emails are sent (see below) |
-| **Import Leads** | CSV upload with append/replace modes and email deduplication |
-
----
-
-### 2. Outreach Profiles
-
-The Outreach Profile system makes the tool **universal** — it works for any business that helps companies with bad reviews, not just e-commerce.
-
-![Outreach Profile Panel](screenshots/02-outreach-profile.png)
-
-Each profile defines:
-
-- **Pain Points** — What your leads struggle with (guides which reviews the AI focuses on)
-- **Offer** — One sentence about your service (frames the email CTA)
-- **Tone** — Professional, Casual, or Direct
-- **Review Focus** — Categories the AI prioritizes when analyzing reviews
-
-#### Built-in Presets
-
-Four presets ship out of the box. Select one and the fields auto-fill:
-
-![Preset Selector](screenshots/03-preset-dropdown.png)
-
-| Preset | Pain Points | Tone |
-|---|---|---|
-| **E-commerce Ops** | Late deliveries, lost packages, fulfillment delays | Casual |
-| **SEO Agency** | Poor search rankings, bad online visibility | Professional |
-| **Dev Shop** | Buggy checkout, slow pages, broken features | Direct |
-| **CX / Support** | Terrible customer service, slow response times | Professional |
-
-#### Custom Presets
-
-Click **New preset** at the bottom of the dropdown to create your own. Custom presets are fully editable and deletable. Built-in presets cannot be deleted but can be used as a starting point.
-
----
-
-### 3. Delivery Settings
-
-Control when and how emails are delivered.
-
-![Delivery Settings](screenshots/04-delivery-settings.png)
-
-| Setting | Description |
-|---|---|
-| **Create drafts only** | Generates Gmail drafts for manual review — nothing is sent |
-| **Auto-schedule sends** | Drafts are created and queued for delivery within business hours |
-| **Timezone** | Your business timezone (used for scheduling windows) |
-| **Start / End time** | Business hours window for sending |
-| **Min / Max interval** | Randomized delay between sends (appears natural to spam filters) |
-
----
-
-### 4. Processing Tab
-
-The Processing tab is the operational hub — import leads, select targets, run the pipeline, and monitor results.
-
-![Leads Table](screenshots/05-leads-table.png)
-
-#### How to process leads
-
-1. **Import** leads via CSV upload or Google Sheets sync
-2. **Filter** using the status bar: All, New, Ready, Scheduled, Sent, Skipped, Failed
-3. **Select** leads using checkboxes (individual, page, or all)
-4. **Click Run** to start the pipeline
-
-The pipeline runs through each selected lead:
-- Searches Trustpilot for the company's review page
-- Scrapes 1-2 star reviews from the past 6 months
-- Generates 3 email variants using the active Outreach Profile
-- Creates a Gmail draft (or auto-schedules delivery)
-
-#### Status badges
-
-| Status | Meaning |
-|---|---|
-| `New` | Imported, not yet processed |
-| `Drafted` | Email generated, Gmail draft created |
-| `Scheduled` | Draft created, send time queued |
-| `Sent` | Email delivered |
-| `Skipped` | No Trustpilot profile or no recent negative reviews |
-| `Failed` | Error during scraping or generation |
-
----
-
-## Email Generation
-
-All three variants are generated in parallel using `gemini-2.5-flash`. Each targets a different conversion psychology, adapted to the active Outreach Profile.
-
-### Variant A — Direct Value
-
-Lead with the observed pattern, offer something specific.
-
-> 12 delivery complaints in 60 days. Concentrated in Nov-Dec.
+> Subject: delivery pattern
+>
+> 12 delivery complaints in 60 days. Concentrated in Nov–Dec.
 >
 > ***"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."***
 >
@@ -246,57 +63,129 @@ Lead with the observed pattern, offer something specific.
 >
 > Want the breakdown?
 
-### Variant B — Curiosity Gap
-
-Create intrigue with a data-driven question.
-
-> What changed between October (4.2) and December (1.8)?
->
-> ***"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."***
->
-> 18 complaints mention Black Friday week specifically.
->
-> Seeing the same pattern on your end?
-
-### Variant C — Peer Comparison
-
-Non-judgmental peer observation, collaborative tone.
-
-> Noticed 18 delivery issues cluster around holiday weeks.
->
-> ***"Ordered Nov 20, promised Nov 25. Nothing by Dec 4."***
->
-> Same thing hit us during peak season — took 3 tries to get it right.
->
-> What's your current approach during spikes?
-
-### Email rules (all variants)
-
-- Subject: 2-3 lowercase words (e.g. `delivery pattern`)
-- Body: 50-85 words, sentences under 15 words
-- One bold/italic customer quote
-- CTA question on its own line
-- No em dashes, no salesy language, peer-to-peer tone
-- Includes your Gmail signature automatically
+Variants B and C use the same review with a curiosity-gap and peer-comparison frame. Subjects stay lowercase, bodies stay under 85 words, no em dashes, no "I hope this finds you well." Your Gmail signature appends automatically.
 
 ---
 
-## Scheduled Sending
+## Quick start
 
-When **Auto-schedule sends** is enabled:
+```bash
+git clone https://github.com/dancolta/trustpilot-outreach-automation.git
+cd trustpilot-outreach-automation && npm install
+npm run web
+```
 
-- Emails are queued within your configured business hours
-- Randomized intervals between sends (default 15-25 min) to appear natural
-- On server restart, scheduled emails are recovered automatically:
-  - Future times re-queue normally
-  - Past times within 7 days roll forward to the same clock time
-  - Times older than 7 days are marked `Expired`
+Then open [http://localhost:3000](http://localhost:3000). The Setup tab walks through the three things you need:
+
+| Connection | Where to get it | What it costs |
+|---|---|---|
+| **Gemini API key** | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free tier covers most users. Roughly $0.0003 per draft on `gemini-2.5-flash`. |
+| **Google Sheets** (service account) | [console.cloud.google.com](https://console.cloud.google.com) → Service Accounts → JSON key, saved as `credentials.json` | Free. |
+| **Gmail OAuth** (desktop client) | Same console → OAuth 2.0 Client ID → **Desktop app**, saved as `gmail-credentials.json` | Free. |
+
+No paid tiers. No telemetry. No CRM required.
 
 ---
 
-## Google Sheet Structure
+## Outreach Profiles — the part that makes drafts not sound like AI
 
-### Sheet1 — Leads
+A generic "write a cold email about this review" call produces generic emails. An Outreach Profile is a lens — pain points you fix, the one sentence you'd use to describe your offer, your tone, the review categories you care about. The same negative review produces a different email depending on whose profile is active.
+
+Four profiles ship out of the box. Edit any of them, or create your own.
+
+| Preset | Pain it filters for | Tone |
+|---|---|---|
+| **E-commerce Ops** | Late deliveries, lost packages, fulfillment delays | Casual |
+| **SEO Agency** | Poor search rankings, bad online visibility | Professional |
+| **Dev Shop** | Buggy checkout, slow pages, broken features | Direct |
+| **CX / Support** | Slow response times, ticket black holes | Professional |
+
+The profile is the product. Spend an hour writing yours.
+
+---
+
+## How this compares
+
+| | This repo | Apollo / Instantly / Smartlead | Clay | 6sense / Bombora | ChatGPT + manual |
+|---|---|---|---|---|---|
+| **Signal source** | Public 1–2★ reviews — real, dated complaints | Cold lists | Aggregated, paid | Paid intent data | None |
+| **Personalization** | Cites the actual review | `{{first_name}}` token swap | Prompt-chained enrichment | Account-level only | Manual, slow |
+| **Default behavior** | Drafts in Gmail. Human ships every send. | Auto-send pipelines | Auto-send | N/A | Manual |
+| **Where data lives** | Your machine, your Google account | Vendor cloud | Vendor cloud | Vendor cloud | Local |
+| **Cost** | $0 + ~cents/lead on Gemini | $97–500/mo per seat | $349+/mo | $40k+/yr | $20/mo + hours |
+| **Setup** | Three commands | Sales call + onboarding | Workflow build | Procurement cycle | None — no leverage |
+
+Closest cousins in OSS: [listmonk](https://github.com/knadh/listmonk) (self-hosted newsletter), [crawlee](https://github.com/apify/crawlee) (the scraping primitive). Neither does the signal→draft loop end-to-end.
+
+---
+
+## Deliverability and how this treats Trustpilot
+
+**Deliverability.** Drafts mode is the default. When scheduled send is on, the queue uses randomized 15–25 minute intervals inside your configured business hours and tz, with daily overflow rather than burst sending. Everything routes through your own Gmail account using OAuth — no third-party SMTP relay, no shared IP pool, no warmup theater. Your domain reputation is yours.
+
+**Trustpilot.** The scraper hits public review pages only. No auth bypass, no API misuse, no review-author PII beyond what's visible to any logged-out visitor. Rate-limited by default. Treat it the way you'd treat any read-only research tool: a few hundred companies a week is fine; ten thousand a day is not what this is for.
+
+**Your responsibility.** Trustpilot's terms restrict scraping; Gmail's terms restrict automated sending and bulk behavior. This tool gives you the levers to stay inside both — drafts mode, business hours, randomized intervals, no auto-send. It does not absolve you of the call. If you put it on a server, blast 500 emails a day, and get suspended, that is on the operator, not the tool. Read the terms. Run it the way it's designed to be run.
+
+---
+
+## FAQ
+
+**Is there a free open-source alternative to Apollo for cold email?**
+This repo is a self-hosted Node.js alternative to Apollo, Instantly, Smartlead, and Lemlist for teams running founder-led sales. It uses Trustpilot 1–2★ reviews as a free, public buying-signal source, Gemini AI for personalization, and your own Gmail account for delivery. No subscription, no data-vendor lock-in.
+
+**What is signal-based outbound?**
+Signal-based outbound targets prospects who have demonstrated an active buying trigger — a public complaint about a competitor, a job change, a tech-stack switch — rather than blasting purchased lists. This tool operationalizes the simplest version: every negative Trustpilot review is a real-time signal, and the email writes itself around the reviewer's own words.
+
+**Can I run AI cold email without paying for intent data?**
+Yes. Public reviews are intent data. 1-star Trustpilot reviews are dated, attributed to a specific company, and written in the prospect's own pain vocabulary. That's exactly what 6sense and Bombora sell, except free and more specific.
+
+**What does this actually cost to run?**
+Roughly $0.0003 per generated draft on `gemini-2.5-flash` (so ~$0.30 per 1,000 drafts). Google Sheets and Gmail are free. Server cost is zero if you run it on your laptop.
+
+**Is the scraper going to get my IP banned?**
+Run it in normal-human volumes — a few hundred companies a week, not ten thousand a day. The defaults are conservative on purpose. If you 10× the batch size, expect rate-limit errors, and don't expect the tool to apologize for them.
+
+**Will this 10× my reply rate?**
+No. Two or three honest conversations a week with people who are actively unhappy with a direct competitor — that's the realistic outcome. This is leverage, not magic.
+
+---
+
+## Configuration and depth
+
+<details>
+<summary><strong>Full setup walkthrough (with screenshots)</strong></summary>
+
+The Setup tab uses collapsible panels with live status indicators for each integration.
+
+![Setup Overview](screenshots/01-setup-overview.png)
+
+| Panel | What it does |
+|---|---|
+| Gemini AI | Enter and live-test your API key |
+| Google Sheet | Paste a Sheet URL or ID; headers auto-format on first connect |
+| Gmail Account | OAuth2 connection with send-as alias support |
+| Service Account | Shows the address you need to share your Sheet with |
+| Outreach Profile | Pain, offer, tone, review focus (see preset table above) |
+| Delivery Settings | Drafts only / auto-schedule / timezone / send window / interval |
+| Import Leads | CSV upload with append/replace modes and email dedupe |
+
+![Outreach Profile](screenshots/02-outreach-profile.png)
+
+![Preset Selector](screenshots/03-preset-dropdown.png)
+
+![Delivery Settings](screenshots/04-delivery-settings.png)
+
+![Leads Table](screenshots/05-leads-table.png)
+
+![Activity Log](screenshots/06-activity-log.png)
+
+</details>
+
+<details>
+<summary><strong>Google Sheet structure</strong></summary>
+
+**Sheet1 — Leads**
 
 | Column | Description |
 |---|---|
@@ -305,11 +194,11 @@ When **Auto-schedule sends** is enabled:
 | C — Last Name | Lead's last name |
 | D — Company | Company name |
 | E — Email | Lead's email address |
-| F — Website | Company website (used to find Trustpilot profile) |
+| F — Website | Company website (used to find the Trustpilot profile) |
 
 The sheet is auto-formatted on first connection: frozen header, column widths, dark header, alternating rows.
 
-### Emails — Output
+**Emails — Output**
 
 | Column | Description |
 |---|---|
@@ -320,11 +209,12 @@ The sheet is auto-formatted on first connection: frozen header, column widths, d
 | Pain Points | Issues identified by Gemini |
 | Email Draft (A/B/C) | Three generated variants |
 | Status | Draft / Scheduled / Sent |
-| Scheduled Time | Send time (if scheduled) |
+| Scheduled Time | Send time, if scheduled |
 
----
+</details>
 
-## API Reference
+<details>
+<summary><strong>API reference</strong></summary>
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -345,32 +235,30 @@ The sheet is auto-formatted on first connection: frozen header, column widths, d
 | `POST` | `/api/redraft` | Regenerate email for a single lead |
 | `POST` | `/api/send-now` | Immediately send a scheduled email |
 
----
+</details>
 
-## Project Structure
+<details>
+<summary><strong>Project structure</strong></summary>
 
 ```
 trustpilot-outreach-automation/
 ├── public/
-│   └── index.html          # Single-page UI (dark theme, vanilla JS)
+│   └── index.html                Single-page UI (dark theme, vanilla JS)
 ├── src/
-│   ├── server.js            # Express API, job state, outreach profiles, scheduling
-│   ├── emailGen.js          # Gemini AI email generation (V14, config-driven)
-│   ├── gmail.js             # Gmail OAuth2, drafts, send-as aliases
-│   ├── sheets.js            # Google Sheets read/write via service account
-│   ├── trustpilot.js        # Puppeteer scraper for Trustpilot reviews
-│   ├── index.js             # CLI entry point (batch mode, no web UI)
-│   ├── draftEmails.js       # CLI: create Gmail drafts from Emails tab
-│   ├── regenerate-emails.js # CLI: re-run email generation for a row
-│   └── format-sheet.js      # CLI: re-apply Sheet1 formatting
-├── screenshots/             # App screenshots for documentation
-├── .env.example             # Environment variable template
+│   ├── server.js                 Express API, job state, scheduling
+│   ├── emailGen.js               Gemini email generation (config-driven)
+│   ├── gmail.js                  Gmail OAuth2, drafts, send-as aliases
+│   ├── sheets.js                 Google Sheets read/write (service account)
+│   ├── trustpilot.js             Puppeteer scraper for Trustpilot reviews
+│   ├── index.js                  CLI entry point (batch mode, no web UI)
+│   ├── draftEmails.js            CLI: drafts from the Emails tab
+│   ├── regenerate-emails.js      CLI: re-run generation for a row
+│   └── format-sheet.js           CLI: re-apply Sheet1 formatting
+├── screenshots/
 └── package.json
 ```
 
----
-
-## NPM Scripts
+NPM scripts:
 
 | Script | Description |
 |---|---|
@@ -380,68 +268,59 @@ trustpilot-outreach-automation/
 | `npm run regenerate` | Regenerate emails for a specific row |
 | `npm run draft-emails` | Create Gmail drafts from the Emails tab |
 
----
-
-## Troubleshooting
-
-<details>
-<summary><strong>"Skipped - No Trustpilot" for many leads</strong></summary>
-
-The scraper searches by company website domain. If the domain doesn't match the Trustpilot profile URL, it won't be found. This is expected — not a failure.
 </details>
 
 <details>
-<summary><strong>Timeout errors / "Failed" status</strong></summary>
+<summary><strong>Scheduled send recovery (on server restart)</strong></summary>
 
-Trustpilot pages can be slow. Process in smaller batches (5-10 leads), wait between batches, and avoid peak hours.
+The server reads `Scheduled` status from the Emails tab on startup:
+
+- Future send times re-queue normally.
+- Past send times within 7 days roll forward to the same clock time.
+- Times older than 7 days are marked `Expired`.
+
 </details>
 
 <details>
-<summary><strong>Gmail OAuth won't complete</strong></summary>
+<summary><strong>Troubleshooting</strong></summary>
 
-Confirm `gmail-credentials.json` is in the project root and the OAuth client type is **Desktop app** (not Web). Allow the browser window through your firewall.
+**"Skipped — No Trustpilot" for many leads.** The scraper searches by company website domain. If the domain doesn't match the Trustpilot profile, it won't be found. Expected, not a failure.
+
+**Timeout errors / "Failed" status.** Trustpilot pages can be slow. Process in smaller batches (5–10 leads) and avoid peak hours.
+
+**Gmail OAuth won't complete.** Confirm `gmail-credentials.json` is in the project root and the OAuth client type is **Desktop app**, not Web. Allow the browser callback through your firewall.
+
+**Gemini API key invalid.** Verify at [aistudio.google.com](https://aistudio.google.com) and confirm `gemini-2.5-flash` is available in your region.
+
+**Sheet connection fails.** The service account email (shown in the Setup tab) must be added as an **Editor** on your Google Sheet.
+
+**Rate limiting from Trustpilot (429).** Reduce batch size to 3–5 leads and process during off-peak hours.
+
+More cases in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 </details>
 
 <details>
-<summary><strong>Gemini API key invalid</strong></summary>
-
-Verify at [aistudio.google.com](https://aistudio.google.com) and confirm `gemini-2.5-flash` is available in your region.
-</details>
-
-<details>
-<summary><strong>Sheet connection fails</strong></summary>
-
-The service account email (shown in Setup tab) must be added as an **Editor** on your Google Sheet.
-</details>
-
-<details>
-<summary><strong>Scheduled emails not recovered after restart</strong></summary>
-
-The server reads `Scheduled` status from the Emails tab on startup. Times older than 7 days are marked `Expired`.
-</details>
-
-<details>
-<summary><strong>Rate limiting from Trustpilot (429)</strong></summary>
-
-Reduce batch size to 3-5 leads and process during off-peak hours.
-</details>
-
----
-
-## Credentials (gitignored)
+<summary><strong>Credentials (gitignored)</strong></summary>
 
 These files contain secrets and are excluded from version control:
 
 ```
-.env                   # Environment variables
-credentials.json       # Google service account key
-gmail-credentials.json # Gmail OAuth client config
-gmail-token.json       # Gmail OAuth token (auto-generated)
-settings.json          # Persisted app settings
+.env                     Environment variables
+credentials.json         Google service account key
+gmail-credentials.json   Gmail OAuth client config
+gmail-token.json         Gmail OAuth token (auto-generated)
+settings.json            Persisted app settings
 ```
+
+</details>
 
 ---
 
 ## License
 
-ISC
+ISC. Use it, fork it, ship it. No warranty on the deliverability outcomes of your specific Gmail account.
+
+## Contributing
+
+Issues and PRs welcome. Keep changes scoped; this tool deliberately does not try to become a CRM.
