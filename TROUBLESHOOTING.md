@@ -1,231 +1,127 @@
-# Troubleshooting Guide
+# Troubleshooting
 
-## Issue: "Failed: 14" During Processing
-
-### What Happened
-When processing multiple companies at once, 14 companies failed due to:
-1. **Timeout errors** - Trustpilot pages took too long to load
-2. **Rate limiting** - Too many requests to Trustpilot or Gemini API
-3. **Network issues** - Temporary connection problems
-
-### Root Causes
-- Original timeouts were too aggressive (15-30 seconds)
-- Processing large batches (20+) triggered rate limits
-- No retry mechanism for transient failures
+For the common cases (Skipped, OAuth, Sheet, Gemini key) see the FAQ and Troubleshooting accordion in the [README](README.md). This file covers deeper failures and operational tactics.
 
 ---
 
-## ✅ Fixes Applied
+## Reading the result counters
 
-### 1. Increased Timeouts in `src/trustpilot.js`
-- **Page load timeout**: 15s → 30s
-- **Review scraping timeout**: 30s → 60s
-- **Review selector wait**: 10s → 15s
+After a run you'll see something like `Success: 12, Skipped: 9, Failed: 2`. These mean different things:
 
-These changes handle:
-- Slow internet connections
-- Trustpilot server delays
-- Peak traffic periods
+- **Success** — Trustpilot page found, recent negative reviews exist, Gemini generated drafts, Gmail drafts created.
+- **Skipped** — Either no Trustpilot page matched the company website, or there were no 1–2★ reviews in the last 6 months. Expected behavior, not a bug. Roughly 30–60% of any cold list will skip.
+- **Failed** — A real error occurred. Scrape timeout, Gemini API error, Gmail OAuth expired, or a network issue. Worth investigating.
 
-### 2. Created Diagnostic Tool
-**File:** `diagnose-and-retry.js`
-
-**Usage:**
-```bash
-node diagnose-and-retry.js
-```
-
-**What it does:**
-- Shows processing statistics
-- Lists unprocessed companies
-- Recommends next batch to process
-- Identifies actual failures vs skips
+A run that comes back 0 success / mostly skipped does not mean the tool broke. It means the leads on that list don't have negative reviews on Trustpilot. Try a list of companies you already know have public complaints.
 
 ---
 
-## 📋 Current Status
+## Persistent timeouts
 
-Run `node diagnose-and-retry.js` to see:
-- Total emails sent
-- Companies skipped (no negative reviews)
-- Actual failures
-- Next companies to process
+Trustpilot pages can be slow during peak hours and the scraper waits for the review feed to render before extracting. Built-in timeouts:
 
-**As of last check:**
-- ✓ 42 emails sent
-- ⊘ 58 skipped (no negative reviews - expected)
-- ✗ 0 failed
-- 11 companies remaining
+- Page load: 30s
+- Review scrape: 60s
+- Review selector wait: 15s
 
----
+If you're seeing repeated `Failed` rows with timeout errors:
 
-## 🎯 Best Practices
-
-### 1. Process in Small Batches
-**Recommended: 5-10 companies at a time**
-
-```bash
-# Safe batch size
-node src/index.js --start=164 --limit=5
-
-# Wait 1-2 minutes between batches
-node src/index.js --start=169 --limit=5
-```
-
-### 2. Why Small Batches?
-- **Prevents rate limiting** - Trustpilot won't block you
-- **Reduces memory usage** - Fewer browser instances
-- **Easier error recovery** - If something fails, less work lost
-- **Better monitoring** - See results immediately
-
-### 3. Optimal Workflow
-```bash
-# 1. Check what needs processing
-node diagnose-and-retry.js
-
-# 2. Process first batch (5 companies)
-node src/index.js --start=X --limit=5
-
-# 3. Wait 60-90 seconds
-
-# 4. Process next batch
-node src/index.js --start=X+5 --limit=5
-
-# 5. Repeat until all processed
-```
+1. Reduce batch size to 5 leads at a time.
+2. Wait 60–90 seconds between batches.
+3. Avoid US/EU business hours — run early morning or weekends.
+4. Check your network. The scraper uses a real headless Chromium and is sensitive to flaky DNS.
 
 ---
 
-## 🔧 Common Issues & Solutions
+## Rate limiting (429 from Trustpilot)
 
-### Issue: "No Trustpilot page found"
-**Status:** Skipped - No Trustpilot
-**Meaning:** Company not on Trustpilot (not a failure)
-**Action:** None needed - expected behavior
+Trustpilot rate-limits aggressive requestors. If you start seeing 429s or a sudden cluster of failures:
 
-### Issue: "No negative reviews"
-**Status:** Skipped - No negative reviews
-**Meaning:** Company has good ratings (not a failure)
-**Action:** None needed - can't send outreach without pain points
+1. Stop processing immediately. Continuing makes it worse.
+2. Wait 30+ minutes before resuming.
+3. Drop batch size to 3 leads and add manual pauses between batches.
+4. Consider whether your volume target makes sense for this tool. A few hundred companies a week is well within normal scraper hygiene. Ten thousand a day is not.
 
-### Issue: Actual Failures
-**Status:** Failed
-**Meaning:** Real error occurred
-**Action:**
-1. Check error message in Emails tab
-2. Verify internet connection
-3. Check API keys in .env
-4. Try processing that company individually:
-   ```bash
-   node src/index.js --start=ROW_NUMBER --limit=1
-   ```
-
-### Issue: Rate Limiting
-**Symptoms:**
-- Multiple timeouts
-- "429 Too Many Requests"
-- Slow processing
-
-**Solutions:**
-1. Reduce batch size to 3-5
-2. Add 2-3 minute delays between batches
-3. Process during off-peak hours
+If you're getting rate-limited from Gemini (`429 Resource Exhausted`), you've hit the free tier quota. Either wait for the daily reset or move to a paid Gemini key.
 
 ---
 
-## 📊 Understanding the Numbers
+## Recovering a partial run
 
-When you see: "Success: 0, Skipped: 9, Failed: 14"
+If a batch dies halfway through:
 
-**This means:**
-- **Success (0)** - Companies with negative reviews → email generated → sent
-- **Skipped (9)** - Companies without negative reviews (expected, not bad)
-- **Failed (14)** - Actual errors (timeout, API issues, etc.)
-
-**Total processed:** 0 + 9 + 14 = 23 companies
+1. Open the Google Sheet. The `Status` column in Sheet1 tracks per-row state. Anything still showing `New` or `Failed` needs to be re-run.
+2. From the web UI, filter the Leads table by `Failed` or `New`, select the rows, and click Run again. The pipeline is idempotent — it won't double-draft anything already in `Drafted` or `Sent` state.
+3. Failed rows do not block other rows. You can keep processing forward while you decide whether to retry the failed ones.
 
 ---
 
-## 🚀 Recovery Process
+## Scheduled emails missing after a server restart
 
-If you have failures:
+On startup the server reads the `Scheduled` status from the Emails tab and rebuilds its queue:
 
-### Step 1: Run Diagnostic
-```bash
-node diagnose-and-retry.js
-```
+- Future send times re-queue normally.
+- Past times within 7 days roll forward to the same clock time on the next eligible business day.
+- Times older than 7 days are marked `Expired` and dropped from the queue.
 
-### Step 2: Check Failed Companies
-Look in the Emails tab for entries with "Failed" status.
-
-### Step 3: Retry Failed Companies
-Failed companies are NOT marked as processed in Sheet1, so they'll be retried on the next run.
-
-### Step 4: Process Remaining
-```bash
-# Find first unprocessed row from diagnostic output
-node src/index.js --start=ROW --limit=5
-```
+If you restart the server during business hours, expect a brief gap as the queue rebuilds. Check the Activity Log to confirm the queue restored.
 
 ---
 
-## 🔍 Debug Mode
+## Gmail-side issues
 
-For detailed error information:
+**OAuth token revoked.** Google revokes OAuth tokens after long idle periods, password changes, or 2SV resets. Symptom: every send fails with an auth error. Fix: Setup tab → Gmail Account → Disconnect → reconnect.
+
+**Send-as alias not working.** The Gmail API can only send from addresses that are verified as send-as aliases on the connected account. If your alias dropdown is empty, add the alias in Gmail Settings → Accounts → "Send mail as" first, verify it, then refresh the Setup tab.
+
+**Drafts created but not visible in Gmail.** Gmail caches the drafts folder aggressively. Refresh the Gmail web tab, or search for the recipient address — the draft will be there.
+
+---
+
+## Headless Chromium / Puppeteer issues
+
+**`Chromium failed to download`.** Run `npx puppeteer browsers install chrome` from the project root, then restart.
+
+**`Protocol error (Target.setAutoAttach)`.** Usually a version mismatch after a partial `npm install`. Delete `node_modules` and `package-lock.json`, then `npm install` again.
+
+**Running on a VPS / Linux server without a desktop.** Install the system Chromium dependencies first:
 
 ```bash
-# Run with Node.js debugging
-NODE_DEBUG=* node src/index.js --start=ROW --limit=1
-
-# Or capture all output
-node src/index.js --start=ROW --limit=5 2>&1 | tee processing.log
+sudo apt-get install -y \
+  libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+  libgbm1 libpango-1.0-0 libcairo2 libasound2
 ```
 
----
-
-## ✅ System Health Checklist
-
-Before processing a batch:
-
-- [ ] Internet connection stable
-- [ ] `.env` file has valid API keys
-- [ ] `credentials.json` exists
-- [ ] Google Sheet is accessible
-- [ ] Processing in batches of 5-10
-- [ ] Waiting 60s+ between batches
+The default `puppeteer-extra-plugin-stealth` config is tuned for desktop runs. On a server, expect a slightly higher skip rate and consider running with `--no-sandbox` only if you understand the implications.
 
 ---
 
-## 📞 Quick Commands
+## Debug output
+
+For verbose logs during a run:
 
 ```bash
-# Check system status
-node diagnose-and-retry.js
-
-# Process safely (5 at a time)
-node src/index.js --start=X --limit=5
-
-# Test single company
-node src/index.js --start=X --limit=1
-
-# Process all remaining (risky for large batches)
-node src/index.js --start=X
-
-# View format
-npm run format
+NODE_DEBUG=* npm run web
 ```
 
----
+Or capture a single CLI run:
 
-## 💡 Pro Tips
+```bash
+node src/index.js --start=ROW_NUMBER --limit=1 2>&1 | tee processing.log
+```
 
-1. **Weekend Processing:** Less Trustpilot traffic = fewer failures
-2. **Monitor Memory:** Close other apps when processing large batches
-3. **Track Progress:** Keep a spreadsheet of which batches you've run
-4. **Backup Data:** Export Google Sheet regularly
-5. **Check Emails Tab:** Verify results after each batch
+Most useful errors appear in the server console (web mode) or stdout (CLI mode), not in the UI. If you're filing an issue, attach a few lines of log around the failure.
 
 ---
 
-*Last updated: 2026-02-03*
-*Fixes applied: Increased timeouts, added diagnostic tool*
+## Pre-flight checklist
+
+Before kicking off a real batch:
+
+- `.env` and `credentials.json` exist in the project root
+- Service account email is added as Editor on your Google Sheet
+- Gmail OAuth shows Connected in the Setup tab
+- Outreach Profile is filled in (the default templates work but generic profiles produce generic drafts)
+- Delivery mode is `Create drafts only` for the first run — verify the output looks right before turning on scheduled send
+- Batch size set conservatively (5–10 leads on your first real run)

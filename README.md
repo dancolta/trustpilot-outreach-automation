@@ -20,24 +20,9 @@ A 1-star Trustpilot review is. Someone publicly raised their hand and said *the 
 
 ## How it works
 
-```
-  Trustpilot 1★/2★ reviews
-           │
-           ▼
-   Puppeteer scraper           (stealth, rate-limited, public pages only)
-           │
-           ▼
-   Gemini 2.5 Flash             (analyzes through your Outreach Profile lens
-           │                     — pain, offer, tone, review focus)
-           ▼
-   3 email variants             (Direct Value · Curiosity Gap · Peer Comparison
-           │                     — each cites the actual reviewer quote)
-           ▼
-   Gmail drafts                 (default mode. Nothing sends. You decide.)
-           │
-           ▼
-   Optional: scheduled send     (randomized intervals, business hours, your tz)
-```
+![Signal to action: Trustpilot review → Outreach Profile lens → Gemini 2.5 Flash → Gmail drafts](signal-flow.gif)
+
+Under the hood: Puppeteer scraper (public pages, rate-limited) → Gemini 2.5 Flash analyzes each review through your Outreach Profile lens → three email variants per lead (Direct Value, Curiosity Gap, Peer Comparison), each citing the actual reviewer quote → Gmail drafts. Scheduled send is opt-in with randomized intervals inside your configured business hours.
 
 Three steps for the operator:
 
