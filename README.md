@@ -1,3 +1,5 @@
+<div align="center">
+
 # Turn competitor Trustpilot complaints into cold emails worth replying to.
 
 ![License: ISC](https://img.shields.io/badge/license-ISC-blue?style=flat) ![Node 18+](https://img.shields.io/badge/node-%3E%3D18-43853d?style=flat) ![Self-hosted](https://img.shields.io/badge/self--hosted-yes-black?style=flat)
@@ -5,6 +7,8 @@
 Open-source signal-based outbound for founder-led sales. Scrapes 1★/2★ Trustpilot reviews, drafts three personalized cold emails per lead with Gemini, and stages them in Gmail for you to read before anything sends.
 
 ![Pipeline](demo.gif)
+
+</div>
 
 > **What this is not.** Not a spray-and-pray sender. Not a paid intent-data vendor. Not an autonomous AI that emails strangers on your behalf. Drafts land in your Gmail. You ship.
 
