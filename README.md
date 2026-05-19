@@ -6,6 +6,8 @@
 
 Open-source signal-based outbound for founder-led sales. Scrapes 1★/2★ Trustpilot reviews, drafts three personalized cold emails per lead with Gemini, and stages them in Gmail for you to read before anything sends.
 
+![Trustpilot Outreach](assets/hero.gif)
+
 ![Pipeline](demo.gif)
 
 </div>
