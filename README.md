@@ -315,3 +315,7 @@ ISC. Use it, fork it, ship it. No warranty on the deliverability outcomes of you
 ## Contributing
 
 Issues and PRs welcome. Keep changes scoped; this tool deliberately does not try to become a CRM.
+
+---
+
+> By [NodeSparks](https://www.nodesparks.com) — we replace outreach SaaS (Apollo, Instantly, Lemlist) with [agents you own outright](https://www.nodesparks.com/blog/apollo-alternative-custom-outreach-agent). This repo is that pattern, open-sourced.
